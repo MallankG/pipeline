@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: unified-etl-api
+    env: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    rootDir: ./apps/api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: worker
+    name: unified-etl-worker
+    env: docker
+    dockerfilePath: ./apps/worker/Dockerfile
+    rootDir: ./apps/worker
+    plan: free
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET_PROCESSED
+        value: processed
+      - key: REDIS_URL
+        sync: false
