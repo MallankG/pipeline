@@ -12,6 +12,11 @@ type AuthSession = {
   access_token: string;
 };
 
+type AuthResponse = {
+  user?: AuthUser;
+  session?: AuthSession | null;
+};
+
 function authHeaders(token?: string) {
   const headers: Record<string, string> = {
     apikey: supabaseAnonKey,
@@ -40,7 +45,7 @@ export async function signInWithPassword(email: string, password: string) {
   return data as AuthSession;
 }
 
-export async function signUp(email: string, password: string) {
+export async function signUp(email: string, password: string): Promise<AuthResponse> {
   const res = await fetch(`${supabaseUrl}/auth/v1/signup`, {
     method: "POST",
     headers: authHeaders(),
@@ -50,7 +55,7 @@ export async function signUp(email: string, password: string) {
   if (!res.ok) {
     throw new Error(data?.msg || data?.error_description || "Failed to sign up");
   }
-  return data;
+  return data as AuthResponse;
 }
 
 export async function getUserFromToken(token: string): Promise<AuthUser | null> {

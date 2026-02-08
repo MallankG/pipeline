@@ -9,7 +9,6 @@ export default function LandingPage() {
         </p>
         <div className="grid" style={{ gridAutoFlow: "column", gap: 12, justifyContent: "start" }}>
           <a className="btn" href="/auth">Get Started</a>
-          <a className="btn secondary" href="/app">View Dashboard</a>
         </div>
 
         <div className="flow">

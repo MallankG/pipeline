@@ -212,6 +212,44 @@ label { font-size: 12px; color: var(--muted); }
   text-align: center;
 }
 
+.auth-shell {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.auth-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 20px;
+  padding: 26px;
+}
+
+.auth-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.auth-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.auth-side {
+  background: linear-gradient(180deg, #ffffff, #f3efe8);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 20px;
+  padding: 26px;
+}
+
 .stepper {
   display: flex;
   gap: 12px;
@@ -270,4 +308,5 @@ label { font-size: 12px; color: var(--muted); }
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; }
   .hero h1 { font-size: 40px; }
+  .auth-shell { grid-template-columns: 1fr; }
 }
