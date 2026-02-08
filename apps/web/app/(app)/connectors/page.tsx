@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiPost } from "../../components/api";
-import { useSessionUser } from "../../components/session";
+import { apiPost } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 const CONNECTORS = [
   { id: "S3", label: "S3 / GCS / Azure Blob", hint: "s3://bucket/path or gs://bucket/path" },

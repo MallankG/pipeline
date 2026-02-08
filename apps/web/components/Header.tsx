@@ -1,18 +1,12 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import AuthStatus from "./AuthStatus";
 import { useSessionUser } from "./session";
+import ProfileMenu from "./ProfileMenu";
 
 export default function Header() {
-  const pathname = usePathname();
   const { user, loading } = useSessionUser();
 
-  if (pathname === "/" || pathname === "/auth") {
-    return null;
-  }
-
-  if (!loading && !user) {
+  if (loading || !user) {
     return null;
   }
 
@@ -23,7 +17,7 @@ export default function Header() {
         <a href="/app">Dashboard</a>
         <a href="/datasets/new">New Dataset</a>
         <a href="/connectors">Connectors</a>
-        <AuthStatus />
+        <ProfileMenu />
       </nav>
     </header>
   );

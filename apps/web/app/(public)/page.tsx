@@ -1,4 +1,17 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSessionUser } from "@/components/session";
+
 export default function LandingPage() {
+  const { user, loading } = useSessionUser();
+
+  useEffect(() => {
+    if (!loading && user) {
+      window.location.href = "/app";
+    }
+  }, [loading, user]);
+
   return (
     <main className="hero fade-up">
       <section>

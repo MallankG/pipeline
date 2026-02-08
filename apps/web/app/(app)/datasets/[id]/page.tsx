@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet } from "../../../components/api";
-import { useSessionUser } from "../../../components/session";
+import { useParams } from "next/navigation";
+import { apiGet } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 type Dataset = {
   id: string;
@@ -25,7 +26,9 @@ type Source = {
   created_at: string;
 };
 
-export default function DatasetPage({ params }: { params: { id: string } }) {
+export default function DatasetPage() {
+  const params = useParams<{ id: string }>();
+  const datasetId = params?.id;
   const { user, loading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
@@ -33,23 +36,23 @@ export default function DatasetPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function load() {
-      if (!user) {
+      if (!user || !datasetId) {
         return;
       }
-      const ds = await apiGet(`/datasets/${params.id}`);
-      const vs = await apiGet(`/datasets/${params.id}/versions`);
+      const ds = await apiGet(`/datasets/${datasetId}`);
+      const vs = await apiGet(`/datasets/${datasetId}/versions`);
       setDataset(ds);
       setVersions(vs || []);
 
       const sourcesMap: Record<string, Source[]> = {};
       for (const version of vs || []) {
-        const src = await apiGet(`/datasets/${params.id}/versions/${version.id}/sources`);
+        const src = await apiGet(`/datasets/${datasetId}/versions/${version.id}/sources`);
         sourcesMap[version.id] = src || [];
       }
       setSourcesByVersion(sourcesMap);
     }
     load();
-  }, [params.id, user]);
+  }, [datasetId, user]);
 
   if (!loading && !user) {
     return (
@@ -85,7 +88,7 @@ export default function DatasetPage({ params }: { params: { id: string } }) {
                 <td>{v.status}</td>
                 <td>{new Date(v.created_at).toLocaleString()}</td>
                 <td>
-                  <a className="btn secondary" href={`/datasets/${params.id}/curate/${v.id}`}>Curate</a>
+                  <a className="btn secondary" href={`/datasets/${datasetId}/curate/${v.id}`}>Curate</a>
                 </td>
               </tr>
             ))}

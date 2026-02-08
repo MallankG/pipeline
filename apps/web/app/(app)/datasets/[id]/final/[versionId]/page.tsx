@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet } from "../../../../../components/api";
-import { useSessionUser } from "../../../../../components/session";
+import { useParams } from "next/navigation";
+import { apiGet } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 type Dataset = {
   name: string;
@@ -15,23 +16,26 @@ type Asset = {
   status: string;
 };
 
-export default function FinalPage({ params }: { params: { id: string; versionId: string } }) {
+export default function FinalPage() {
+  const params = useParams<{ id: string; versionId: string }>();
+  const datasetId = params?.id;
+  const versionId = params?.versionId;
   const { user, loading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
 
   useEffect(() => {
     async function load() {
-      if (!user) {
+      if (!user || !datasetId || !versionId) {
         return;
       }
-      const ds = await apiGet(`/datasets/${params.id}`);
-      const assetsResult = await apiGet(`/datasets/${params.id}/versions/${params.versionId}/assets`);
+      const ds = await apiGet(`/datasets/${datasetId}`);
+      const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
       setDataset(ds);
       setAssets(assetsResult || []);
     }
     load();
-  }, [params.id, params.versionId, user]);
+  }, [datasetId, versionId, user]);
 
   if (!loading && !user) {
     return (
@@ -45,10 +49,10 @@ export default function FinalPage({ params }: { params: { id: string; versionId:
     <main className="grid" style={{ gap: 20 }}>
       <section className="card">
         <div className="section-title">Final Dataset: {dataset?.name || "Dataset"}</div>
-        <div className="badge">Version {params.versionId}</div>
+        <div className="badge">Version {versionId}</div>
         <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
-          <a className="btn secondary" href={`/datasets/${params.id}/eda/${params.versionId}`}>View EDA</a>
-          <a className="btn" href={`/datasets/${params.id}/curate/${params.versionId}`}>Back to Curation</a>
+          <a className="btn secondary" href={`/datasets/${datasetId}/eda/${versionId}`}>View EDA</a>
+          <a className="btn" href={`/datasets/${datasetId}/curate/${versionId}`}>Back to Curation</a>
         </div>
       </section>
 
@@ -57,7 +61,7 @@ export default function FinalPage({ params }: { params: { id: string; versionId:
         <div className="grid grid-2">
           <div className="stat">
             <strong>Manifest</strong>
-            <div>processed/datasets/{params.id}/versions/{params.versionId}/manifest.jsonl</div>
+            <div>processed/datasets/{datasetId}/versions/{versionId}/manifest.jsonl</div>
           </div>
           <div className="stat">
             <strong>Image Export</strong>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet } from "../../../../../components/api";
-import { useSessionUser } from "../../../../../components/session";
-import VersionActions from "../../../../../components/VersionActions";
+import { useParams } from "next/navigation";
+import { apiGet } from "@/components/api";
+import { useSessionUser } from "@/components/session";
+import VersionActions from "@/components/VersionActions";
 
 type Asset = {
   id: string;
@@ -19,11 +20,10 @@ type Job = {
   created_at: string;
 };
 
-export default function VersionPage({
-  params,
-}: {
-  params: { id: string; versionId: string };
-}) {
+export default function VersionPage() {
+  const params = useParams<{ id: string; versionId: string }>();
+  const datasetId = params?.id;
+  const versionId = params?.versionId;
   const { user, loading } = useSessionUser();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -31,12 +31,12 @@ export default function VersionPage({
 
   useEffect(() => {
     async function load() {
-      if (!user) {
+      if (!user || !datasetId || !versionId) {
         return;
       }
       try {
-        const assetsResult = await apiGet(`/datasets/${params.id}/versions/${params.versionId}/assets`);
-        const jobsResult = await apiGet(`/datasets/${params.id}/versions/${params.versionId}/jobs`);
+        const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
+        const jobsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/jobs`);
         setAssets(assetsResult || []);
         setJobs(jobsResult || []);
       } catch (err: unknown) {
@@ -44,7 +44,7 @@ export default function VersionPage({
       }
     }
     load();
-  }, [params.id, params.versionId, user]);
+  }, [datasetId, versionId, user]);
 
   if (!loading && !user) {
     return (
@@ -58,7 +58,9 @@ export default function VersionPage({
     <main className="grid" style={{ gap: 24 }}>
       {error && <section className="card" style={{ color: "#b60000" }}>{error}</section>}
 
-      <VersionActions datasetId={params.id} versionId={params.versionId} />
+      {datasetId && versionId && (
+        <VersionActions datasetId={datasetId} versionId={versionId} />
+      )}
 
       <section className="card">
         <div className="section-title">Assets</div>
@@ -106,7 +108,7 @@ export default function VersionPage({
 
       <section className="card">
         <div className="section-title">Labeling</div>
-        <a className="btn secondary" href={`/label/${params.id}/${params.versionId}`}>Open Labeling UI</a>
+        <a className="btn secondary" href={`/label/${datasetId}/${versionId}`}>Open Labeling UI</a>
       </section>
     </main>
   );

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet } from "../../../../../components/api";
-import { useSessionUser } from "../../../../../components/session";
+import { useParams } from "next/navigation";
+import { apiGet } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 type Dataset = {
   id: string;
@@ -24,7 +25,10 @@ type Source = {
   created_at: string;
 };
 
-export default function CuratePage({ params }: { params: { id: string; versionId: string } }) {
+export default function CuratePage() {
+  const params = useParams<{ id: string; versionId: string }>();
+  const datasetId = params?.id;
+  const versionId = params?.versionId;
   const { user, loading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -32,18 +36,18 @@ export default function CuratePage({ params }: { params: { id: string; versionId
 
   useEffect(() => {
     async function load() {
-      if (!user) {
+      if (!user || !datasetId || !versionId) {
         return;
       }
-      const ds = await apiGet(`/datasets/${params.id}`);
-      const assetsResult = await apiGet(`/datasets/${params.id}/versions/${params.versionId}/assets`);
-      const sourcesResult = await apiGet(`/datasets/${params.id}/versions/${params.versionId}/sources`);
+      const ds = await apiGet(`/datasets/${datasetId}`);
+      const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
+      const sourcesResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/sources`);
       setDataset(ds);
       setAssets(assetsResult || []);
       setSources(sourcesResult || []);
     }
     load();
-  }, [params.id, params.versionId, user]);
+  }, [datasetId, versionId, user]);
 
   if (!loading && !user) {
     return (
@@ -122,8 +126,8 @@ export default function CuratePage({ params }: { params: { id: string; versionId
           </tbody>
         </table>
         <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
-          <a className="btn secondary" href={`/datasets/${params.id}/eda/${params.versionId}`}>View EDA</a>
-          <a className="btn" href={`/datasets/${params.id}/final/${params.versionId}`}>Go to Final Dataset</a>
+          <a className="btn secondary" href={`/datasets/${datasetId}/eda/${versionId}`}>View EDA</a>
+          <a className="btn" href={`/datasets/${datasetId}/final/${versionId}`}>Go to Final Dataset</a>
         </div>
       </section>
     </main>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet } from "../../components/api";
-import { useSessionUser } from "../../components/session";
+import { apiGet } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 type Dataset = {
   id: string;

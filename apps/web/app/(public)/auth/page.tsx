@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { hasSupabaseEnv, signInWithPassword, signUp } from "../../components/supabase";
-import { setAccessToken, useSessionUser } from "../../components/session";
+import { hasSupabaseEnv, signInWithPassword, signUp } from "@/components/supabase";
+import { setAccessToken, useSessionUser } from "@/components/session";
 
 export default function AuthPage() {
   const { user, loading } = useSessionUser();

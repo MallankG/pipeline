@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiPost } from "../../../../components/api";
-import { useSessionUser } from "../../../../components/session";
+import { useParams } from "next/navigation";
+import { apiGet, apiPost } from "@/components/api";
+import { useSessionUser } from "@/components/session";
 
 type Asset = {
   id: string;
@@ -10,7 +11,10 @@ type Asset = {
   media_type: string;
 };
 
-export default function LabelPage({ params }: { params: { datasetId: string; versionId: string } }) {
+export default function LabelPage() {
+  const params = useParams<{ datasetId: string; versionId: string }>();
+  const datasetId = params?.datasetId;
+  const versionId = params?.versionId;
   const { user, loading } = useSessionUser();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [labels, setLabels] = useState<Record<string, string>>({});
@@ -18,18 +22,18 @@ export default function LabelPage({ params }: { params: { datasetId: string; ver
 
   useEffect(() => {
     async function load() {
-      if (!user) {
+      if (!user || !datasetId || !versionId) {
         return;
       }
-      const res = await apiGet(`/datasets/${params.datasetId}/versions/${params.versionId}/assets`);
+      const res = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
       setAssets(res || []);
     }
     load();
-  }, [params.datasetId, params.versionId, user]);
+  }, [datasetId, versionId, user]);
 
   async function saveLabel(assetId: string) {
     const label = labels[assetId] || "";
-    await apiPost(`/datasets/${params.datasetId}/versions/${params.versionId}/labels/${assetId}`, {
+    await apiPost(`/datasets/${datasetId}/versions/${versionId}/labels/${assetId}`, {
       label_type: "manual",
       payload: { label },
       annotator: user?.id || "user",
@@ -39,7 +43,7 @@ export default function LabelPage({ params }: { params: { datasetId: string; ver
   }
 
   async function runAutoLabel() {
-    await apiPost(`/datasets/${params.datasetId}/versions/${params.versionId}/auto-label`, {});
+    await apiPost(`/datasets/${datasetId}/versions/${versionId}/auto-label`, {});
     setStatus("Auto labels created");
   }
 

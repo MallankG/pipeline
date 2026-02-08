@@ -1,15 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 :root {
-  --bg: #f3f1ea;
-  --ink: #0d0d0d;
-  --muted: #6a625a;
-  --accent: #ff5c35;
-  --accent-2: #1f7a8c;
+  --bg: #f2efe8;
+  --ink: #151515;
+  --muted: #6d645a;
+  --accent: #ff6b3d;
+  --accent-2: #0f6b6f;
   --card: #ffffff;
-  --border: #ded7cc;
-  --shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
-  --radius: 18px;
+  --border: #e3dbce;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+  --radius: 20px;
   --serif: "Fraunces", serif;
   --sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -22,9 +22,9 @@ body {
   font-family: var(--sans);
   color: var(--ink);
   background:
-    radial-gradient(1000px 600px at 10% -10%, #ffe8d9, transparent),
-    radial-gradient(900px 500px at 110% 10%, #dff2f6, transparent),
-    radial-gradient(700px 420px at 20% 90%, #f7e9ff, transparent),
+    radial-gradient(900px 500px at 12% -10%, #ffe3d2, transparent),
+    radial-gradient(900px 500px at 115% 10%, #d7f1f0, transparent),
+    radial-gradient(600px 400px at 15% 95%, #f0ddff, transparent),
     var(--bg);
 }
 
@@ -33,7 +33,7 @@ a { color: inherit; text-decoration: none; }
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px;
 }
 
 .header {
@@ -41,14 +41,14 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 0;
+  padding: 16px 0;
 }
 
 .brand {
   font-weight: 700;
   letter-spacing: -0.03em;
   font-family: var(--serif);
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .card {
@@ -56,7 +56,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 22px;
 }
 
 .grid { display: grid; gap: 16px; }
@@ -69,7 +69,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   gap: 10px;
   padding: 12px 18px;
-  border-radius: 12px;
+  border-radius: 999px;
   border: 1px solid var(--ink);
   background: var(--ink);
   color: white;
@@ -100,7 +100,7 @@ input, select, textarea {
 label { font-size: 12px; color: var(--muted); }
 
 .section-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   margin: 0 0 10px 0;
 }
@@ -123,19 +123,19 @@ label { font-size: 12px; color: var(--muted); }
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: #f2efe9;
+  background: #f5f1ea;
 }
 
 .hero {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
-  gap: 24px;
+  gap: 28px;
   align-items: center;
   min-height: calc(100vh - 120px);
 }
 
 .hero h1 {
-  font-size: 52px;
+  font-size: 56px;
   margin: 0 0 16px 0;
   letter-spacing: -0.03em;
   font-family: var(--serif);
@@ -149,8 +149,8 @@ label { font-size: 12px; color: var(--muted); }
 
 .hero-panel {
   padding: 22px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #0d0d0d, #2a2a2a);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0f0f0f, #2d2d2d);
   color: white;
   box-shadow: var(--shadow);
 }
@@ -185,7 +185,7 @@ label { font-size: 12px; color: var(--muted); }
   gap: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #f7f4ef;
+  background: #f7f3ee;
   border: 1px solid var(--border);
 }
 
@@ -249,6 +249,48 @@ label { font-size: 12px; color: var(--muted); }
   border-radius: 20px;
   padding: 26px;
 }
+
+.profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-2);
+}
+
+.profile-menu {
+  position: absolute;
+  right: 0;
+  top: 44px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  min-width: 180px;
+  display: grid;
+}
+
+.profile-menu a,
+.profile-menu button {
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-menu button { font-weight: 600; }
 
 .stepper {
   display: flex;

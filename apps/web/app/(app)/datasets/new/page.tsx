@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { apiPost } from "../../../components/api";
-import { useSessionUser } from "../../../components/session";
+import { apiPost } from "@/components/api";
+import { getAccessToken, useSessionUser } from "@/components/session";
 
 const SOURCE_PRESETS = [
   "Local Upload",
@@ -23,7 +23,44 @@ export default function NewDatasetPage() {
   const [output, setOutput] = useState("{\n  \"images\": \"coco\",\n  \"text\": \"jsonl\",\n  \"numerical\": \"parquet\"\n}");
   const [sourceType, setSourceType] = useState("Local Upload");
   const [sourceUri, setSourceUri] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+
+  function toggle(type: string) {
+    setDataTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  }
+
+  async function uploadFiles(datasetId: string, versionId: string) {
+    if (!files.length) {
+      return [] as string[];
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    const token = getAccessToken() || "";
+
+    const uploadedUris: string[] = [];
+    for (const file of files) {
+      const path = `datasets/${datasetId}/versions/${versionId}/uploads/${encodeURIComponent(file.name)}`;
+      const res = await fetch(`${supabaseUrl}/storage/v1/object/raw/${path}`, {
+        method: "POST",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": file.type || "application/octet-stream",
+          "x-upsert": "true",
+        },
+        body: file,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Upload failed");
+      }
+      uploadedUris.push(`${supabaseUrl}/storage/v1/object/raw/${path}`);
+    }
+    return uploadedUris;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,32 +68,31 @@ export default function NewDatasetPage() {
       setStatus("Please sign in first.");
       return;
     }
-    const payload = {
-      name,
-      description,
-      data_types: dataTypes,
-    };
+    setStatus("Creating dataset...");
+    const payload = { name, description, data_types: dataTypes };
     const ds = await apiPost("/datasets", payload);
     const target_output = JSON.parse(output);
     const version = await apiPost(`/datasets/${ds.id}/versions`, { target_output });
 
-    if (sourceUri) {
-      await apiPost(`/datasets/${ds.id}/versions/${version.id}/assets`, [
-        {
-          uri: sourceUri,
-          media_type: "text/plain",
-          metadata: { source_type: sourceType },
-        },
-      ]);
+    if (sourceType === "Local Upload" && files.length > 0) {
+      setStatus("Uploading files...");
+      const uploaded = await uploadFiles(ds.id, version.id);
+      await apiPost(`/datasets/${ds.id}/versions/${version.id}/assets`,
+        uploaded.map((uri) => ({
+          uri,
+          media_type: "application/octet-stream",
+          metadata: { source_type: "Local Upload" },
+        }))
+      );
+    } else if (sourceUri) {
+      await apiPost(`/datasets/${ds.id}/versions/${version.id}/sources`, {
+        source_type: sourceType,
+        source_uri: sourceUri,
+        options: {},
+      });
     }
 
     window.location.href = `/datasets/${ds.id}/curate/${version.id}`;
-  }
-
-  function toggle(type: string) {
-    setDataTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
   }
 
   if (!loading && !user) {
@@ -99,14 +135,26 @@ export default function NewDatasetPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label>Source URI / Connection</label>
-            <input
-              value={sourceUri}
-              onChange={(e) => setSourceUri(e.target.value)}
-              placeholder="s3://bucket/path or postgres://user:pass@host:5432/db"
-            />
-          </div>
+          {sourceType === "Local Upload" ? (
+            <div>
+              <label>Upload Files</label>
+              <input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+              {files.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: "#6a625a" }}>
+                  {files.length} files selected
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label>Source URI / Connection</label>
+              <input
+                value={sourceUri}
+                onChange={(e) => setSourceUri(e.target.value)}
+                placeholder="s3://bucket/path or postgres://user:pass@host:5432/db"
+              />
+            </div>
+          )}
           <div>
             <label>Target Output</label>
             <textarea value={output} onChange={(e) => setOutput(e.target.value)} rows={6} />
