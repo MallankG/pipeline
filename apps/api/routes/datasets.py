@@ -9,6 +9,14 @@ from ..models import AssetCreate, DatasetCreate, DatasetVersionCreate, JobCreate
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 
+def _infer_type(media_type: str) -> str:
+    if media_type.startswith("image/"):
+        return "image"
+    if media_type.startswith("text/"):
+        return "text"
+    return "numerical"
+
+
 @router.post("")
 def create_dataset(
     payload: DatasetCreate,
@@ -114,17 +122,26 @@ def add_assets(
     assets: List[AssetCreate],
     db: Client = Depends(get_db),
 ):
-    rows = [
-        {
+    dataset = db.table("datasets").select("data_types").eq("id", dataset_id).maybe_single().execute()
+    current_types = set((dataset.data or {}).get("data_types") or [])
+
+    inferred = set()
+    rows = []
+    for asset in assets:
+        inferred.add(_infer_type(asset.media_type))
+        rows.append({
             "dataset_id": dataset_id,
             "version_id": version_id,
             "uri": asset.uri,
             "media_type": asset.media_type,
             "metadata": asset.metadata,
             "status": "registered",
-        }
-        for asset in assets
-    ]
+        })
+
+    union_types = sorted(current_types.union(inferred))
+    if union_types and union_types != list(current_types):
+        db.table("datasets").update({"data_types": union_types}).eq("id", dataset_id).execute()
+
     res = db.table("assets").insert(rows).execute()
     if not res.data:
         raise HTTPException(status_code=400, detail="Failed to add assets")

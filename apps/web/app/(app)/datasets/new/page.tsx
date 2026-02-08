@@ -25,8 +25,44 @@ export default function NewDatasetPage() {
   const [sourceUri, setSourceUri] = useState("");
   const [files, setFiles] = useState<FileList | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [typeNotice, setTypeNotice] = useState<string | null>(null);
 
   const selectedFiles = files ? Array.from(files) : [];
+
+  function inferTypeFromFile(file: File): string | null {
+    const name = file.name.toLowerCase();
+    if (file.type.startsWith("image/") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".webp") || name.endsWith(".gif")) {
+      return "image";
+    }
+    if (file.type.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".jsonl") || name.endsWith(".csv") || name.endsWith(".md")) {
+      return "text";
+    }
+    if (name.endsWith(".parquet") || name.endsWith(".npy") || name.endsWith(".npz")) {
+      return "numerical";
+    }
+    return null;
+  }
+
+  function handleFilesChange(fl: FileList | null) {
+    setFiles(fl);
+    setTypeNotice(null);
+    if (!fl) return;
+
+    const inferred = new Set<string>();
+    for (const file of Array.from(fl)) {
+      const t = inferTypeFromFile(file);
+      if (t) inferred.add(t);
+    }
+
+    if (inferred.size) {
+      setDataTypes((prev) => {
+        const set = new Set(prev);
+        inferred.forEach((t) => set.add(t));
+        return Array.from(set);
+      });
+      setTypeNotice("Detected file types and updated dataset types automatically.");
+    }
+  }
 
   function toggle(type: string) {
     setDataTypes((prev) =>
@@ -129,6 +165,7 @@ export default function NewDatasetPage() {
             <label><input type="checkbox" checked={dataTypes.includes("text")} onChange={() => toggle("text")} /> Text</label>
             <label><input type="checkbox" checked={dataTypes.includes("numerical")} onChange={() => toggle("numerical")} /> Numerical</label>
           </div>
+          {typeNotice && <div className="badge">{typeNotice}</div>}
           <div>
             <label>Data Source</label>
             <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
@@ -143,7 +180,7 @@ export default function NewDatasetPage() {
               <input
                 type="file"
                 multiple
-                onChange={(e) => setFiles(e.target.files)}
+                onChange={(e) => handleFilesChange(e.target.files)}
               />
               {selectedFiles.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#6a625a" }}>
