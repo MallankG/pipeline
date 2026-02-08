@@ -23,8 +23,10 @@ export default function NewDatasetPage() {
   const [output, setOutput] = useState("{\n  \"images\": \"coco\",\n  \"text\": \"jsonl\",\n  \"numerical\": \"parquet\"\n}");
   const [sourceType, setSourceType] = useState("Local Upload");
   const [sourceUri, setSourceUri] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileList | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  const selectedFiles = files ? Array.from(files) : [];
 
   function toggle(type: string) {
     setDataTypes((prev) =>
@@ -33,7 +35,7 @@ export default function NewDatasetPage() {
   }
 
   async function uploadFiles(datasetId: string, versionId: string) {
-    if (!files.length) {
+    if (!selectedFiles.length) {
       return [] as string[];
     }
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -41,7 +43,7 @@ export default function NewDatasetPage() {
     const token = getAccessToken() || "";
 
     const uploadedUris: string[] = [];
-    for (const file of files) {
+    for (const file of selectedFiles) {
       const path = `datasets/${datasetId}/versions/${versionId}/uploads/${encodeURIComponent(file.name)}`;
       const res = await fetch(`${supabaseUrl}/storage/v1/object/raw/${path}`, {
         method: "POST",
@@ -74,7 +76,7 @@ export default function NewDatasetPage() {
     const target_output = JSON.parse(output);
     const version = await apiPost(`/datasets/${ds.id}/versions`, { target_output });
 
-    if (sourceType === "Local Upload" && files.length > 0) {
+    if (sourceType === "Local Upload" && selectedFiles.length > 0) {
       setStatus("Uploading files...");
       const uploaded = await uploadFiles(ds.id, version.id);
       await apiPost(`/datasets/${ds.id}/versions/${version.id}/assets`,
@@ -138,10 +140,14 @@ export default function NewDatasetPage() {
           {sourceType === "Local Upload" ? (
             <div>
               <label>Upload Files</label>
-              <input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />
-              {files.length > 0 && (
+              <input
+                type="file"
+                multiple
+                onChange={(e) => setFiles(e.target.files)}
+              />
+              {selectedFiles.length > 0 && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#6a625a" }}>
-                  {files.length} files selected
+                  {selectedFiles.length} files selected
                 </div>
               )}
             </div>

@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routes.datasets import router as datasets_router
-from routes.jobs import router as jobs_router
+from api.routes.datasets import router as datasets_router
+from api.routes.jobs import router as jobs_router
 
 load_dotenv()
 
