@@ -18,18 +18,4 @@ services:
       - key: CORS_ORIGINS
         sync: false
 
-  - type: worker
-    name: unified-etl-worker
-    env: docker
-    dockerfilePath: ./backend/worker/Dockerfile
-    rootDir: ./backend/worker
-    plan: free
-    envVars:
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: SUPABASE_STORAGE_BUCKET_PROCESSED
-        value: processed
-      - key: REDIS_URL
-        sync: false
+
