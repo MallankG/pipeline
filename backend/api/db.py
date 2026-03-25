@@ -1,24 +1,16 @@
 import os
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+from supabase import create_client, Client
 
 load_dotenv()
 
-# We will use Postgres as the database backend.
-# The URL should look like: postgresql+asyncpg://user:password@host:port/database
-# If local, e.g. postgresql+asyncpg://etl_user:etl_password@localhost:5432/etl_db
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://etl_user:etl_password@localhost:5432/etl_db")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+# Admin client with bypass access (service role)
+admin_supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY else None
 
-Base = declarative_base()
-
-async def get_db_session():
-    async with AsyncSessionLocal() as session:
-        yield session
+def get_user_scoped_client(token: str) -> Client:
+    """Returns a client scoped to the current user's JWT (enforces RLS)"""
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY, {"global": {"headers": {"Authorization": f"Bearer {token}"}}})

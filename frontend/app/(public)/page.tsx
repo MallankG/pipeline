@@ -8,7 +8,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      window.location.href = "/app";
+      window.location.href = "/dashboard";
     }
   }, [loading, user]);
 

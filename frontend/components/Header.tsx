@@ -13,7 +13,7 @@ export default function Header() {
     <header className="header">
       <div className="brand">Unified ETL</div>
       <nav className="nav">
-        <a href="/app">Dashboard</a>
+        <a href="/dashboard">Dashboard</a>
         <a href="/datasets/new">New Dataset</a>
         <a href="/connectors">Connectors</a>
       </nav>

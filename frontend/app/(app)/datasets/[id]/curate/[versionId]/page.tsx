@@ -33,12 +33,19 @@ const CURATION_STAGES = [
   { label: "EDA", detail: "Generating summary statistics" },
 ];
 
+type Version = {
+  id: string;
+  status: string;
+  version: number;
+};
+
 export default function CuratePage() {
   const params = useParams<{ id: string; versionId: string }>();
   const datasetId = params?.id;
   const versionId = params?.versionId;
   const { user, loading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [version, setVersion] = useState<Version | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [polling, setPolling] = useState(false);
@@ -51,7 +58,11 @@ export default function CuratePage() {
       const ds = await apiGet(`/datasets/${datasetId}`);
       const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
       const sourcesResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/sources`);
+      const versions = await apiGet(`/datasets/${datasetId}/versions`);
+      const currentV = versions?.find((v: Version) => v.id === versionId);
+
       setDataset(ds);
+      setVersion(currentV);
       setAssets(assetsResult || []);
       setSources(sourcesResult || []);
     }
@@ -63,18 +74,28 @@ export default function CuratePage() {
     setPolling(true);
     const timer = setInterval(async () => {
       const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
+      const versions = await apiGet(`/datasets/${datasetId}/versions`);
+      const currentV = versions?.find((v: Version) => v.id === versionId);
+
       setAssets(assetsResult || []);
-    }, 6000);
+      setVersion(currentV);
+      if (currentV?.status === "processed" || currentV?.status === "failed") {
+        setPolling(false);
+        clearInterval(timer);
+      }
+    }, 4000);
     return () => clearInterval(timer);
   }, [datasetId, versionId, user]);
 
   const stageIndex = useMemo(() => {
-    if (assets.length === 0) return 0;
-    if (assets.some((a) => a.status === "registered")) return 1;
-    if (assets.some((a) => a.status === "validated")) return 2;
-    if (assets.some((a) => a.status === "normalized")) return 3;
-    return 4;
-  }, [assets]);
+    const s = version?.status || "draft";
+    if (s === "ingesting") return 0;
+    if (s === "processing") return 1;
+    if (s === "eda_generating") return 3;
+    if (s === "exporting") return 4;
+    if (s === "processed") return 5;
+    return -1;
+  }, [version]);
 
   if (!loading && !user) {
     return (
@@ -90,7 +111,7 @@ export default function CuratePage() {
         <div className="toolbar">
           <div>
             <div className="page-title">Curating {dataset?.name || "Dataset"}</div>
-            <div className="muted">Version {versionId}</div>
+            <div className="muted">Version v{version?.version} (Current status: {version?.status})</div>
           </div>
           <div className="chip-group">
             {(dataset?.data_types || []).map((t) => (
@@ -98,8 +119,8 @@ export default function CuratePage() {
             ))}
           </div>
         </div>
-        <div style={{ marginTop: 16 }} className="alert info">
-          {polling ? "Curation in progress. We are checking new assets every few seconds." : "Curation paused."}
+        <div style={{ marginTop: 16 }} className={`alert ${version?.status === "failed" ? "warn" : "info"}`}>
+          {polling ? "Pipeline is active. We are tracking progress through the ingest and processing stages." : version?.status === "processed" ? "Curation complete." : version?.status === "failed" ? "Curation failed. Check job logs." : "Curation paused."}
         </div>
       </section>
 
@@ -107,10 +128,13 @@ export default function CuratePage() {
         <div className="section-title">Curation stages</div>
         <div className="grid">
           {CURATION_STAGES.map((s, idx) => (
-            <div key={s.label} className="stat" style={{ borderColor: idx <= stageIndex ? "rgba(31, 122, 140, 0.6)" : undefined }}>
+            <div key={s.label} className="stat" style={{ 
+              borderColor: idx === stageIndex ? "var(--accent)" : idx < stageIndex ? "rgba(31, 122, 140, 0.6)" : undefined,
+              background: idx === stageIndex ? "rgba(139, 92, 246, 0.05)" : undefined
+            }}>
               <strong>{s.label}</strong>
               <div className="muted">{s.detail}</div>
-              <div style={{ marginTop: 8 }} className="badge">{idx <= stageIndex ? "Active" : "Queued"}</div>
+              <div style={{ marginTop: 8 }} className="badge">{idx === stageIndex ? "In Progress" : idx < stageIndex ? "Complete" : "Queued"}</div>
             </div>
           ))}
         </div>
@@ -131,7 +155,7 @@ export default function CuratePage() {
       </section>
 
       <section className="card">
-        <div className="section-title">Incoming Assets</div>
+        <div className="section-title">Incoming Assets ({assets.length})</div>
         <table className="table">
           <thead>
             <tr>
@@ -145,7 +169,7 @@ export default function CuratePage() {
               <tr key={a.id}>
                 <td>{a.uri}</td>
                 <td>{a.media_type}</td>
-                <td>{a.status}</td>
+                <td><span className={`chip ${a.status === "processed" ? "primary" : a.status === "failed" ? "warn" : ""}`}>{a.status}</span></td>
               </tr>
             ))}
             {assets.length === 0 && (

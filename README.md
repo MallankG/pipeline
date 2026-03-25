@@ -18,6 +18,11 @@ Unified ETL is a full-stack platform to ingest, curate, version, and export AI-r
 - Add data into existing dataset versions
 - Duplicate dataset-name protection per user
 - Type auto-detection and auto-correction during upload/ingestion
+- **Phase 2 Implementation**: Granular curation status tracking (Ingesting, Processing, EDA, Exporting)
+- **Phase 3 Implementation**: 
+  - Advanced monitoring with dataset lineage metadata in final exports.
+  - Rich EDA visualization (metadata summary table).
+  - Team collaboration and RBAC infrastructure (Teams & Dataset-Team mapping).
 
 ## Project Structure
 

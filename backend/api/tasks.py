@@ -87,6 +87,10 @@ def _ingest_sources(dataset_id: str, version_id: str) -> None:
             }
             supabase.table("assets").insert(placeholder).execute()
 
+def _update_version_status(version_id: str, status: str) -> None:
+    if not supabase: return
+    supabase.table("dataset_versions").update({"status": status}).eq("id", version_id).execute()
+
 def run_pipeline_async(job_id: str) -> None:
     if not supabase: return
     job = supabase.table("jobs").select("*").eq("id", job_id).maybe_single().execute()
@@ -95,35 +99,57 @@ def run_pipeline_async(job_id: str) -> None:
 
     dataset_id = job.data["dataset_id"]
     version_id = job.data["version_id"]
-
-    _ingest_sources(dataset_id, version_id)
-
-    assets = supabase.table("assets").select("*").eq("dataset_id", dataset_id).eq("version_id", version_id).execute()
-    assets = assets.data or []
-
     logs = []
-    for asset in assets:
-        try:
-            media_type = asset["media_type"]
-            if media_type.startswith("image/"):
-                meta = _process_image(asset)
-            elif media_type.startswith("text/"):
-                meta = _process_text(asset)
-            else:
-                meta = _process_numerical(asset)
 
-            new_meta = dict(asset.get("metadata") or {})
-            new_meta.update(meta)
-            _update_asset(asset["id"], {"metadata": new_meta, "status": "processed"})
-            logs.append(f"Processed {asset['id']}")
-        except Exception as e:
-            _update_asset(asset["id"], {"status": "failed"})
-            logs.append(f"Failed {asset['id']}: {e}")
+    try:
+        # Stage 1: Ingest
+        _update_version_status(version_id, "ingesting")
+        logs.append("Stage: Ingesting sources...")
+        _ingest_sources(dataset_id, version_id)
 
-    _export_manifest(dataset_id, version_id)
+        # Stage 2: Validate & Process
+        _update_version_status(version_id, "processing")
+        assets = supabase.table("assets").select("*").eq("dataset_id", dataset_id).eq("version_id", version_id).execute()
+        assets = assets.data or []
 
-    supabase.table("dataset_versions").update({"status": "processed"}).eq("id", version_id).execute()
-    supabase.table("jobs").update({"status": "completed", "logs": "\n".join(logs)}).eq("id", job_id).execute()
+        for asset in assets:
+            try:
+                media_type = asset["media_type"]
+                _update_asset(asset["id"], {"status": "processing"})
+                
+                if media_type.startswith("image/"):
+                    meta = _process_image(asset)
+                elif media_type.startswith("text/"):
+                    meta = _process_text(asset)
+                else:
+                    meta = _process_numerical(asset)
+
+                new_meta = dict(asset.get("metadata") or {})
+                new_meta.update(meta)
+                _update_asset(asset["id"], {"metadata": new_meta, "status": "processed"})
+                logs.append(f"Processed {asset['id']}")
+            except Exception as e:
+                _update_asset(asset["id"], {"status": "failed"})
+                logs.append(f"Failed {asset['id']}: {e}")
+
+        # Stage 3: EDA
+        _update_version_status(version_id, "eda_generating")
+        logs.append("Stage: Generating EDA...")
+        # (EDA is largely done during processing for simplicity in this MVP, 
+        # but could be a separate aggregation pass here for Phase 3)
+
+        # Stage 4: Export
+        _update_version_status(version_id, "exporting")
+        logs.append("Stage: Exporting manifest...")
+        _export_manifest(dataset_id, version_id)
+
+        # Finalize
+        _update_version_status(version_id, "processed")
+        supabase.table("jobs").update({"status": "completed", "logs": "\n".join(logs)}).eq("id", job_id).execute()
+
+    except Exception as e:
+        _update_version_status(version_id, "failed")
+        supabase.table("jobs").update({"status": "failed", "logs": f"Pipeline failed: {e}\n" + "\n".join(logs)}).eq("id", job_id).execute()
 
 
 def _export_manifest(dataset_id: str, version_id: str) -> None:
@@ -146,6 +172,10 @@ def _export_manifest(dataset_id: str, version_id: str) -> None:
             "media_type": a["media_type"],
             "metadata": a.get("metadata") or {},
             "labels": label_map.get(a["id"], []),
+            "lineage": {
+                "source": a.get("metadata", {}).get("source_type", "unknown"),
+                "ingested_at": a.get("created_at")
+            }
         }
         lines.append(json.dumps(row))
 

@@ -53,14 +53,14 @@ export default function EdaPage() {
   }, {});
 
   return (
-    <main className="grid" style={{ gap: 20 }}>
+    <main className="grid" style={{ gap: 24 }}>
       <section className="card">
         <div className="page-title">EDA: {dataset?.name || "Dataset"}</div>
         <div className="muted">Version {versionId}</div>
       </section>
 
       <section className="card">
-        <div className="section-title">Summary</div>
+        <div className="section-title">Record Distribution</div>
         <div className="grid grid-3">
           <div className="stat"><strong>Total assets</strong><div>{total}</div></div>
           {Object.entries(byType).map(([key, value]) => (
@@ -69,6 +69,35 @@ export default function EdaPage() {
               <div>{value}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="section-title">Feature Metadata (Sample)</div>
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>URI</th>
+                <th>Type</th>
+                <th>Summary Stats</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assets.slice(0, 10).map((a: any) => (
+                <tr key={a.id}>
+                  <td style={{ fontSize: 12 }}>{a.uri.split('/').pop()}</td>
+                  <td><span className="chip">{a.media_type}</span></td>
+                  <td>
+                    <pre style={{ fontSize: 10, margin: 0, opacity: 0.8 }}>
+                      {JSON.stringify(a.metadata || {}, null, 2)}
+                    </pre>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {assets.length > 10 && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Showing first 10 assets.</div>}
         </div>
       </section>
 

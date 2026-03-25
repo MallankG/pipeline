@@ -280,7 +280,7 @@ export default function NewDatasetPage() {
 
           <div className="inline-actions">
             <button className="btn" type="submit">Create and Start Curation</button>
-            <a className="btn secondary" href="/app">View existing datasets</a>
+            <a className="btn secondary" href="/dashboard">View existing datasets</a>
           </div>
           {status && <div className="alert info">{status}</div>}
         </form>

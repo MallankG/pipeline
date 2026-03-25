@@ -19,7 +19,7 @@ export default function AuthPage() {
     try {
       const session = await signInWithPassword(email, password);
       setAccessToken(session.access_token);
-      window.location.href = "/app";
+      window.location.href = "/dashboard";
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     }
@@ -33,13 +33,13 @@ export default function AuthPage() {
       const result = await signUp(email, password);
       if (result?.session?.access_token) {
         setAccessToken(result.session.access_token);
-        window.location.href = "/app";
+        window.location.href = "/dashboard";
         return;
       }
       try {
         const session = await signInWithPassword(email, password);
         setAccessToken(session.access_token);
-        window.location.href = "/app";
+        window.location.href = "/dashboard";
       } catch {
         setNotice("Account created. Check your email to confirm, then sign in.");
       }
@@ -66,7 +66,7 @@ export default function AuthPage() {
         <div className="section-title">Authenticated</div>
         <div className="badge">{user.email || user.id}</div>
         <div style={{ marginTop: 12 }}>
-          <a className="btn" href="/app">Go to Dashboard</a>
+          <a className="btn" href="/dashboard">Go to Dashboard</a>
         </div>
       </main>
     );
