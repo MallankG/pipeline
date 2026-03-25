@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from supabase import Client
 
-from ..auth import get_db
-from ..tasks import run_pipeline_async
+from auth import get_db
+from tasks import run_pipeline_async
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 

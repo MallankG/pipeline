@@ -2,7 +2,7 @@ from typing import Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .db import admin_supabase, get_user_scoped_client
+from db import admin_supabase, get_user_scoped_client
 
 security = HTTPBearer(auto_error=False)
 

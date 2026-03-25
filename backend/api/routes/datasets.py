@@ -3,8 +3,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
-from ..auth import get_current_user, get_db
-from ..models import AssetCreate, DatasetCreate, DatasetVersionCreate, JobCreate, LabelCreate, DataSourceCreate
+from auth import get_current_user, get_db
+from models import AssetCreate, DatasetCreate, DatasetVersionCreate, JobCreate, LabelCreate, DataSourceCreate
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
