@@ -4,7 +4,7 @@ Unified ETL is a full-stack platform to ingest, curate, version, and export AI-r
 
 - Frontend: Next.js (`frontend`) for landing, auth, dashboard, dataset workflows
 - Backend: FastAPI (`backend/api`) for dataset/version/source/asset/job APIs
-- Worker: Celery (`backend/worker`) for async ETL pipeline tasks
+- Worker: (Not currently needed) FastAPI BackgroundTasks are used for async ETL jobs.
 - Data/Auth/Storage: Supabase (Auth, Postgres with RLS, Storage)
 
 ## Core Features
@@ -29,8 +29,7 @@ Unified ETL is a full-stack platform to ingest, curate, version, and export AI-r
 ```text
 frontend/  # Next.js frontend (deploy to Vercel)
 backend/
-  api/       # FastAPI backend (deploy to Render Web Service)
-  worker/    # Celery worker (optional on free plan)
+  api/       # FastAPI backend
 infra/
   supabase/
     schema.sql
@@ -43,7 +42,6 @@ render.yaml
 - Node.js 20+
 - Python 3.11+
 - Supabase project
-- (Optional) Redis for Celery
 
 ## Environment Variables
 
@@ -63,18 +61,9 @@ SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_STORAGE_BUCKET_RAW=raw
 SUPABASE_STORAGE_BUCKET_PROCESSED=processed
-REDIS_URL=redis://localhost:6379/0
 CORS_ORIGINS=http://localhost:3000
 ```
 
-### `backend/worker/.env`
-
-```bash
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_STORAGE_BUCKET_PROCESSED=processed
-REDIS_URL=redis://localhost:6379/0
-```
 
 ## Supabase Setup
 
@@ -105,17 +94,8 @@ npm install
 npm run dev
 ```
 
-### 3) Worker (optional)
-
-```bash
-cd backend/worker
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-celery -A celery_app worker --loglevel=info
-```
-
-If you are on Render free plan and cannot run workers, the app still supports core CRUD + curation UI. Async pipeline jobs will be limited.
+### 3) Pipeline
+The backend uses FastAPI's `BackgroundTasks` to process ETL jobs asynchronously once triggered via the API.
 
 ## Build / Verification
 
@@ -146,7 +126,6 @@ python3 -m compileall backend/api
 
 - Use root `render.yaml` blueprint.
 - API service points to `backend/api`.
-- Worker service points to `backend/worker` (optional if not available in your plan).
 
 ## Security Model
 
