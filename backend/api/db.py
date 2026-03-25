@@ -1,22 +1,24 @@
 import os
 from dotenv import load_dotenv
-from supabase import Client, create_client
-from supabase.lib.client_options import ClientOptions
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+# We will use Postgres as the database backend.
+# The URL should look like: postgresql+asyncpg://user:password@host:port/database
+# If local, e.g. postgresql+asyncpg://etl_user:etl_password@localhost:5432/etl_db
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://etl_user:etl_password@localhost:5432/etl_db")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or not SUPABASE_ANON_KEY:
-    raise RuntimeError(
-        "SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_ANON_KEY must be set"
-    )
+engine = create_async_engine(DATABASE_URL, echo=False)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
-admin_supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+Base = declarative_base()
 
-
-def get_user_scoped_client(jwt: str) -> Client:
-    options = ClientOptions(headers={"Authorization": f"Bearer {jwt}"})
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY, options=options)
+async def get_db_session():
+    async with AsyncSessionLocal() as session:
+        yield session
