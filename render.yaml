@@ -3,7 +3,6 @@ services:
     name: unified-etl-api
     env: docker
     dockerfilePath: ./backend/api/Dockerfile
-    rootDir: ./backend/api
     plan: free
     healthCheckPath: /health
     envVars:

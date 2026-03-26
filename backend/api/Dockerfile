@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt .
+COPY backend/api/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -16,7 +16,7 @@ RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
 # Copy application code
-COPY . .
+COPY backend/api/ .
 
 # Expose port
 EXPOSE 8000

@@ -125,7 +125,8 @@ python3 -m compileall backend/api
 ## Render (Backend)
 
 - Use root `render.yaml` blueprint.
-- API service points to `backend/api`.
+- The blueprint handles the Docker build context from the repository root.
+- Ensure all Supabase environment variables are set in the Render dashboard.
 
 ## Security Model
 
