@@ -37,8 +37,12 @@ export default function ConnectorsPage() {
   useEffect(() => {
     async function load() {
       if (!user) return;
-      const ds = await apiGet("/datasets");
-      setDatasets(ds || []);
+      try {
+        const ds = await apiGet("/datasets");
+        setDatasets(ds || []);
+      } catch (err: unknown) {
+        setStatus(err instanceof Error ? err.message : "Failed to load datasets");
+      }
     }
     load();
   }, [user]);
@@ -49,10 +53,14 @@ export default function ConnectorsPage() {
         setVersions([]);
         return;
       }
-      const vs = await apiGet(`/datasets/${datasetId}/versions`);
-      setVersions(vs || []);
-      if (vs && vs.length > 0) {
-        setVersionId(vs[0].id);
+      try {
+        const vs = await apiGet(`/datasets/${datasetId}/versions`);
+        setVersions(vs || []);
+        if (vs && vs.length > 0) {
+          setVersionId(vs[0].id);
+        }
+      } catch (err: unknown) {
+        setStatus(err instanceof Error ? err.message : "Failed to load versions");
       }
     }
     loadVersions();
@@ -63,12 +71,16 @@ export default function ConnectorsPage() {
       setStatus("Dataset and version are required.");
       return;
     }
-    await apiPost(`/datasets/${datasetId}/versions/${versionId}/sources`, {
-      source_type: sourceType,
-      source_uri: sourceUri,
-      options: {},
-    });
-    setStatus("Source added. It will be used in curation.");
+    try {
+      await apiPost(`/datasets/${datasetId}/versions/${versionId}/sources`, {
+        source_type: sourceType,
+        source_uri: sourceUri,
+        options: {},
+      });
+      setStatus("Source added. It will be used in curation.");
+    } catch (err: unknown) {
+      setStatus(err instanceof Error ? err.message : "Failed to add source");
+    }
   }
 
   if (!loading && !user) {

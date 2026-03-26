@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from supabase.lib.client_options import SyncClientOptions
 
 load_dotenv()
 
@@ -13,4 +14,8 @@ admin_supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) 
 
 def get_user_scoped_client(token: str) -> Client:
     """Returns a client scoped to the current user's JWT (enforces RLS)"""
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY, {"global": {"headers": {"Authorization": f"Bearer {token}"}}})
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY,
+        SyncClientOptions(headers={"Authorization": f"Bearer {token}"}),
+    )

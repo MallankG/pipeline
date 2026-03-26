@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace("localhost", "127.0.0.1");
 
 function getAccessToken(): string | null {
   if (typeof window === "undefined") {
@@ -15,11 +15,17 @@ async function callApi(path: string, init?: RequestInit) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new Error(`API request failed. Make sure the backend is running at ${API_BASE}. ${message}`);
+  }
 
   if (!res.ok) {
     const text = await res.text();

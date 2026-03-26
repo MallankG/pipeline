@@ -52,7 +52,7 @@ def create_dataset(
         .maybe_single()
         .execute()
     )
-    if existing.data:
+    if getattr(existing, "data", None):
         raise HTTPException(status_code=400, detail="Dataset name already exists")
     row = payload.model_dump()
     row["owner_id"] = current_user.id

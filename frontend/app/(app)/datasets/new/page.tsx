@@ -38,8 +38,12 @@ export default function NewDatasetPage() {
   useEffect(() => {
     async function load() {
       if (!user) return;
-      const result = await apiGet("/datasets");
-      setDatasets(result || []);
+      try {
+        const result = await apiGet("/datasets");
+        setDatasets(result || []);
+      } catch (err: unknown) {
+        setStatus(err instanceof Error ? err.message : "Failed to load datasets");
+      }
     }
     load();
   }, [user]);
@@ -136,30 +140,35 @@ export default function NewDatasetPage() {
       return;
     }
     setStatus("Creating dataset...");
-    const payload = { name, description, data_types: dataTypes };
-    const ds = await apiPost("/datasets", payload);
-    const target_output = JSON.parse(output);
-    const version = await apiPost(`/datasets/${ds.id}/versions`, { target_output });
+    try {
+      const payload = { name, description, data_types: dataTypes };
+      const ds = await apiPost("/datasets", payload);
+      const target_output = JSON.parse(output);
+      const version = await apiPost(`/datasets/${ds.id}/versions`, { target_output });
 
-    if (sourceType === "Local Upload" && selectedFiles.length > 0) {
-      setStatus("Uploading files...");
-      const uploaded = await uploadFiles(ds.id, version.id);
-      await apiPost(`/datasets/${ds.id}/versions/${version.id}/assets`,
-        uploaded.map((uri) => ({
-          uri,
-          media_type: "application/octet-stream",
-          metadata: { source_type: "Local Upload" },
-        }))
-      );
-    } else if (sourceUri) {
-      await apiPost(`/datasets/${ds.id}/versions/${version.id}/sources`, {
-        source_type: sourceType,
-        source_uri: sourceUri,
-        options: {},
-      });
+      if (sourceType === "Local Upload" && selectedFiles.length > 0) {
+        setStatus("Uploading files...");
+        const uploaded = await uploadFiles(ds.id, version.id);
+        await apiPost(
+          `/datasets/${ds.id}/versions/${version.id}/assets`,
+          uploaded.map((uri) => ({
+            uri,
+            media_type: "application/octet-stream",
+            metadata: { source_type: "Local Upload" },
+          }))
+        );
+      } else if (sourceUri) {
+        await apiPost(`/datasets/${ds.id}/versions/${version.id}/sources`, {
+          source_type: sourceType,
+          source_uri: sourceUri,
+          options: {},
+        });
+      }
+
+      window.location.href = `/datasets/${ds.id}/curate/${version.id}`;
+    } catch (err: unknown) {
+      setStatus(err instanceof Error ? err.message : "Failed to create dataset");
     }
-
-    window.location.href = `/datasets/${ds.id}/curate/${version.id}`;
   }
 
   if (!loading && !user) {
@@ -248,7 +257,7 @@ export default function NewDatasetPage() {
               ))}
             </select>
             {sourceType === "Local Upload" ? (
-              <div className="upload-drop">
+              <div className="upload-drop" key="upload-source">
                 <label>Upload Files</label>
                 <input
                   type="file"
@@ -262,7 +271,7 @@ export default function NewDatasetPage() {
                 )}
               </div>
             ) : (
-              <div>
+              <div key="remote-source">
                 <label>Source URI / Connection</label>
                 <input
                   value={sourceUri}
