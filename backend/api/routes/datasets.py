@@ -317,3 +317,35 @@ def list_jobs(dataset_id: str, version_id: str, db: Client = Depends(get_db)):
         .execute()
     )
     return res.data or []
+
+@router.delete("/{dataset_id}")
+def delete_dataset(
+    dataset_id: str,
+    db: Client = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    dataset = _require_dataset(db, dataset_id)
+    if dataset.get("owner_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this dataset")
+    
+    res = db.table("datasets").delete().eq("id", dataset_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=400, detail="Failed to delete dataset")
+    return {"status": "ok", "deleted_id": dataset_id}
+
+@router.delete("/{dataset_id}/versions/{version_id}")
+def delete_version(
+    dataset_id: str,
+    version_id: str,
+    db: Client = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    dataset = _require_dataset(db, dataset_id)
+    if dataset.get("owner_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this version")
+    _require_version(db, dataset_id, version_id)
+    
+    res = db.table("dataset_versions").delete().eq("id", version_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=400, detail="Failed to delete version")
+    return {"status": "ok"}

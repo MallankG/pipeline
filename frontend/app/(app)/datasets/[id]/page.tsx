@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { apiGet } from "@/components/api";
+import { useParams, useRouter } from "next/navigation";
+import { apiGet, apiDelete } from "@/components/api";
 import { useSessionUser } from "@/components/session";
 import CreateVersion from "@/components/CreateVersion";
 import PageLoader from "@/components/PageLoader";
@@ -37,6 +37,9 @@ export default function DatasetPage() {
   const [versions, setVersions] = useState<Version[] | null>(null); // null = loading
   const [sourcesByVersion, setSourcesByVersion] = useState<Record<string, Source[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Version | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!user || !datasetId) return;
@@ -69,6 +72,20 @@ export default function DatasetPage() {
     () => (versions ?? []).slice().sort((a, b) => b.version - a.version)[0],
     [versions]
   );
+  
+  async function handleDeleteVersion() {
+    if (!datasetId || !deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await apiDelete(`/datasets/${datasetId}/versions/${deleteTarget.id}`);
+      setVersions((vs) => (vs || []).filter((v) => v.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete version");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   if (authLoading) return <PageLoader />;
 
@@ -94,11 +111,14 @@ export default function DatasetPage() {
             <div className="muted">{dataset.description || "No description yet."}</div>
           </div>
           <div className="inline-actions">
-            {latestVersion && (
-              <a className="btn" href={`/datasets/${datasetId}/curate/${latestVersion.id}`}>Resume Curation</a>
+            {latestVersion && latestVersion.status !== "processed" && (
+              <a className="btn secondary" href={`/datasets/${datasetId}/curate/${latestVersion.id}`}>Resume Curation (v{latestVersion.version})</a>
+            )}
+            {latestVersion && latestVersion.status === "processed" && (
+              <a className="btn secondary" href={`/datasets/${datasetId}/curate/${latestVersion.id}`}>View Curation (v{latestVersion.version})</a>
             )}
             <a className="btn secondary" href="/connectors">Add Source</a>
-            <a className="btn ghost" href={`/datasets/${datasetId}/query`}>Query Data</a>
+            <a className="btn secondary" href={`/datasets/${datasetId}/query`}>Query Data</a>
           </div>
         </div>
         <div className="chip-group" style={{ marginTop: 12 }}>
@@ -115,17 +135,29 @@ export default function DatasetPage() {
         {versions.length === 0 && <div className="muted">No versions yet. Create one to begin curation.</div>}
         <div className="card-grid" style={{ marginTop: 16 }}>
           {versions.map((v) => (
-            <div key={v.id} className="card">
+            <div key={v.id} className="card" style={{ position: "relative" }}>
+              <div style={{ position: "absolute", top: 16, right: 16 }}>
+                 <button className="btn secondary" style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "none" }} onClick={() => setDeleteTarget(v)}>Delete</button>
+              </div>
               <div className="card-title">Version v{v.version}</div>
               <div className="muted">Status: {v.status}</div>
               <div style={{ fontSize: 12, color: "#6a625a", marginTop: 8 }}>
                 Created {new Date(v.created_at).toLocaleString()}
               </div>
               <div className="inline-actions" style={{ marginTop: 12 }}>
-                <a className="btn" href={`/datasets/${datasetId}/curate/${v.id}`}>Curate</a>
+                <a className="btn secondary" href={`/datasets/${datasetId}/curate/${v.id}`}>Curate</a>
                 <a className="btn secondary" href={`/datasets/${datasetId}/versions/${v.id}`}>Add Data</a>
-                <a className="btn ghost" href={`/datasets/${datasetId}/eda/${v.id}`}>EDA</a>
-                <a className="btn ghost" href={`/datasets/${datasetId}/final/${v.id}`}>Final</a>
+                {v.status === "processed" ? (
+                  <>
+                    <a className="btn secondary" href={`/datasets/${datasetId}/eda/${v.id}`}>EDA</a>
+                    <a className="btn secondary" href={`/datasets/${datasetId}/final/${v.id}`}>Final</a>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>EDA</button>
+                    <button className="btn secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>Final</button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -159,6 +191,51 @@ export default function DatasetPage() {
           </div>
         ))}
       </section>
+
+      {/* Delete Version Confirmation Modal */}
+      {deleteTarget && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(29, 26, 23, 0.2)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: 20
+        }}>
+          <div className="card" style={{ maxWidth: 400, width: "100%", margin: 0, position: "relative" }}>
+            <button
+              onClick={() => setDeleteTarget(null)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1.2rem",
+                color: "var(--muted)",
+                lineHeight: 1
+              }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0 }}>Delete Version v{deleteTarget.version}</h3>
+            <p className="muted">
+              Are you sure you want to permanently delete version v{deleteTarget.version}? This action cannot be undone and will delete all associated data assets.
+            </p>
+            <div className="inline-actions" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn secondary ghost" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</button>
+              <button className="btn" onClick={handleDeleteVersion} disabled={isDeleting} style={{ background: "#ef4444", borderColor: "#ef4444", color: "#fff" }}>
+                {isDeleting ? "Deleting..." : "Delete Version"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

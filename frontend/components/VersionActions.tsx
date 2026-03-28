@@ -84,7 +84,7 @@ export default function VersionActions({ datasetId, versionId }: { datasetId: st
     const uploadedUris: string[] = [];
     for (const file of selectedFiles) {
       const path = `datasets/${datasetId}/versions/${versionId}/uploads/${encodeURIComponent(file.name)}`;
-      const res = await fetch(`${supabaseUrl}/storage/v1/object/raw/${path}`, {
+      const res = await fetch(`${supabaseUrl}/storage/v1/object/${path}`, {
         method: "POST",
         headers: {
           apikey: anonKey,
@@ -95,10 +95,13 @@ export default function VersionActions({ datasetId, versionId }: { datasetId: st
         body: file,
       });
       if (!res.ok) {
-        const text = await res.text();
+        let text = "";
+        try {
+           text = await res.text();
+        } catch(e) {}
         throw new Error(text || "Upload failed");
       }
-      uploadedUris.push(`${supabaseUrl}/storage/v1/object/raw/${path}`);
+      uploadedUris.push(`${supabaseUrl}/storage/v1/object/authenticated/${path}`);
     }
     return uploadedUris;
   }

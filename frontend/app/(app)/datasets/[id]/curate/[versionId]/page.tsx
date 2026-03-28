@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiGet } from "@/components/api";
+import { apiGet, apiPost } from "@/components/api";
 import { useSessionUser } from "@/components/session";
 import { useJobWebSocket } from "@/components/useJobWebSocket";
 import PageLoader from "@/components/PageLoader";
@@ -377,6 +377,18 @@ export default function CuratePage() {
     load();
   }, [datasetId, versionId, user]);
 
+  async function startPipeline() {
+    if (!datasetId || !versionId) return;
+    try {
+      const job = await apiPost(`/datasets/${datasetId}/versions/${versionId}/jobs`, { type: "PIPELINE_RUN" });
+      await apiPost(`/jobs/${job.id}/run`, {});
+      setActiveJobId(job.id);
+      setVersion((prev) => prev ? { ...prev, status: "ingesting" } : prev);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to start pipeline");
+    }
+  }
+
   // REST polling — bridges the gap when WS is not connected
   useEffect(() => {
     if (!user || !datasetId || !versionId || !ready) return;
@@ -392,7 +404,7 @@ export default function CuratePage() {
         clearInterval(timer);
         setActiveJobId(null);
       }
-    }, 3000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [datasetId, versionId, user, ready, activeJobId]);
 
@@ -432,8 +444,8 @@ export default function CuratePage() {
         <section className="card">
           <div className="toolbar">
             <div>
-              <div className="page-title">Curating {dataset.name}</div>
-              <div className="muted" style={{ marginTop: 4 }}>
+              <div className="page-title" style={{ paddingBottom: 8, lineHeight: 1.1 }}>Curating {dataset.name}</div>
+              <div className="muted" style={{ marginTop: 8, fontSize: "0.95rem" }}>
                 Version v{version?.version}
                 {" · "}
                 <span
@@ -474,6 +486,14 @@ export default function CuratePage() {
                   />
                   {isConnected ? "Live" : "Polling…"}
                 </div>
+              )}
+              {(!isActive && assets && assets.length > 0) && (
+                <button 
+                   onClick={startPipeline} 
+                   className="btn secondary" 
+                   style={{ padding: '6px 12px', fontSize: '14px', marginLeft: '8px' }}>
+                   {isComplete || isFailed ? "↺ Redo Pipeline" : "▶ Run Pipeline"}
+                </button>
               )}
               <div className="chip-group">
                 {(dataset.data_types || []).map((t) => (
@@ -713,9 +733,9 @@ export default function CuratePage() {
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
-                    title={a.uri}
+                    title={decodeURIComponent(a.uri.split('/').pop() || a.uri)}
                   >
-                    {a.uri}
+                    {decodeURIComponent(a.uri.split('/').pop() || a.uri)}
                   </td>
                   <td>{a.media_type}</td>
                   <td>

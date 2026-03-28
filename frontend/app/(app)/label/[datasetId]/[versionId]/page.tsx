@@ -63,7 +63,7 @@ export default function LabelPage() {
       <div className="grid" style={{ marginTop: 20 }}>
         {assets.map((a) => (
           <div key={a.id} className="card">
-            <div style={{ fontSize: 12, color: "#666" }}>{a.uri}</div>
+            <div style={{ fontSize: 12, color: "#666" }} title={decodeURIComponent(a.uri.split('/').pop() || a.uri)}>{decodeURIComponent(a.uri.split('/').pop() || a.uri)}</div>
             {a.media_type.startsWith("image/") && a.uri.startsWith("http") && (
               <img src={a.uri} alt="asset" style={{ width: "100%", marginTop: 8, borderRadius: 10 }} />
             )}

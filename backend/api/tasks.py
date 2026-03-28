@@ -103,8 +103,9 @@ def _process_image(asset: Dict[str, Any]) -> Dict[str, Any]:
 def _process_numerical(asset: Dict[str, Any]) -> Dict[str, Any]:
     try:
         import pandas as pd
-    except Exception:
-        return {"warning": "pandas not installed"}
+    except Exception as e:
+        print(f"FAILED TO IMPORT PANDAS: {e}")
+        return {"warning": f"pandas not installed or failed to load: {e}"}
 
     path = _download_asset_to_temp_file(asset["uri"])
     print(f"[_process_numerical] Fetching numerical data from: {path}")
@@ -120,6 +121,10 @@ def _process_numerical(asset: Dict[str, Any]) -> Dict[str, Any]:
 
 def _ingest_sources(dataset_id: str, version_id: str) -> None:
     if not supabase: return
+    
+    existing_assets_query = supabase.table("assets").select("uri").eq("dataset_id", dataset_id).eq("version_id", version_id).execute()
+    existing_uris = {row["uri"] for row in (existing_assets_query.data or [])}
+
     sources = (
         supabase.table("data_sources")
         .select("*")
@@ -137,6 +142,9 @@ def _ingest_sources(dataset_id: str, version_id: str) -> None:
         uris = [u for u in uri_candidates if u]
 
         for uri in uris:
+            if uri in existing_uris:
+                continue
+                
             guessed, _ = mimetypes.guess_type(uri)
             media_type = guessed or "application/octet-stream"
             placeholder = {

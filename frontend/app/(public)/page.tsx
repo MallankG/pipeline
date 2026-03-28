@@ -25,9 +25,9 @@ export default function LandingPage() {
           <span>Unified ETL</span>
           <strong>Unified ETL</strong>
         </div>
-        <nav className="poster-nav">
-          <span>AI dataset operations</span>
-          <a href="/auth">Sign In</a>
+        <nav className="poster-nav" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <a className="btn secondary" href="/auth" style={{ padding: "6px 16px" }}>Sign In</a>
+          <a className="btn" href="/auth" style={{ padding: "6px 16px" }}>Create Account</a>
         </nav>
       </header>
 

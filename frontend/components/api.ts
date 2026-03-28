@@ -46,3 +46,7 @@ export function apiGet(path: string) {
 export function apiPost(path: string, body: unknown) {
   return callApi(path, { method: "POST", body: JSON.stringify(body) });
 }
+
+export function apiDelete(path: string) {
+  return callApi(path, { method: "DELETE" });
+}

@@ -106,7 +106,7 @@ export default function NewDatasetPage() {
     const uploadedUris: string[] = [];
     for (const file of selectedFiles) {
       const path = `datasets/${datasetId}/versions/${versionId}/uploads/${encodeURIComponent(file.name)}`;
-      const res = await fetch(`${supabaseUrl}/storage/v1/object/raw/${path}`, {
+      const res = await fetch(`${supabaseUrl}/storage/v1/object/${path}`, {
         method: "POST",
         headers: {
           apikey: anonKey,
@@ -117,10 +117,11 @@ export default function NewDatasetPage() {
         body: file,
       });
       if (!res.ok) {
-        const text = await res.text();
+        let text = "";
+        try { text = await res.text(); } catch(e) {}
         throw new Error(text || "Upload failed");
       }
-      uploadedUris.push(`${supabaseUrl}/storage/v1/object/raw/${path}`);
+      uploadedUris.push(`${supabaseUrl}/storage/v1/object/authenticated/${path}`);
     }
     return uploadedUris;
   }
@@ -164,6 +165,10 @@ export default function NewDatasetPage() {
           options: {},
         });
       }
+
+      setStatus("Starting pipeline...");
+      const job = await apiPost(`/datasets/${ds.id}/versions/${version.id}/jobs`, { type: "PIPELINE_RUN" });
+      await apiPost(`/jobs/${job.id}/run`, {});
 
       window.location.href = `/datasets/${ds.id}/curate/${version.id}`;
     } catch (err: unknown) {

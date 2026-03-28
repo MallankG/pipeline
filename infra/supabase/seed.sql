@@ -1,2 +1,0 @@
--- Seed intentionally omitted because `datasets.owner_id` is enforced by RLS (`auth.uid()`).
--- Insert sample data while authenticated through Supabase Auth.

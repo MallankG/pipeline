@@ -535,7 +535,7 @@ export default function VersionPage() {
                 {assets.map((a) => (
                   <tr key={a.id}>
                     <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <span title={a.uri}>{a.uri}</span>
+                      <span title={decodeURIComponent(a.uri.split('/').pop() || a.uri)}>{decodeURIComponent(a.uri.split('/').pop() || a.uri)}</span>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>{a.media_type}</td>
                     <td>

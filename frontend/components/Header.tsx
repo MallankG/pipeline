@@ -11,7 +11,7 @@ export default function Header() {
 
   return (
     <header className="header">
-      <div className="brand">Unified ETL</div>
+      <a href="/dashboard" className="brand" style={{textDecoration: "none", color: "inherit"}}>Unified ETL</a>
       <nav className="nav">
         <a href="/dashboard">Dashboard</a>
         <a href="/datasets/new">New Dataset</a>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "@/components/api";
+import { apiGet, apiDelete } from "@/components/api";
 import { useSessionUser } from "@/components/session";
 import PageLoader from "@/components/PageLoader";
 
@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const [datasets, setDatasets] = useState<Dataset[] | null>(null); // null = not yet loaded
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +40,25 @@ export default function DashboardPage() {
       (d.description || "").toLowerCase().includes(q)
     );
   }, [datasets, query]);
+
+  function initiateDelete(e: React.MouseEvent, id: string, name: string) {
+    e.preventDefault(); // Prevent navigating to the dataset detail page
+    setDeleteTarget({ id, name });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await apiDelete(`/datasets/${deleteTarget.id}`);
+      setDatasets((prev) => (prev ? prev.filter((d) => d.id !== deleteTarget.id) : prev));
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete dataset");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   // Auth loading
   if (authLoading) return <PageLoader lines={2} />;
@@ -94,8 +115,20 @@ export default function DashboardPage() {
         </a>
 
         {filtered.map((d) => (
-          <a key={d.id} className="card" href={`/datasets/${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
-            <div className="card-title">{d.name}</div>
+          <a key={d.id} className="card" href={`/datasets/${d.id}`} style={{ display: "flex", flexDirection: "column", position: "relative" }}>
+            <button 
+                onClick={(e) => initiateDelete(e, d.id, d.name)} 
+                title="Delete dataset"
+                style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', color: 'var(--alert-color)', cursor: 'pointer', padding: '4px', opacity: 0.7, transform: 'scale(0.9)', transition: 'all 0.2s', zIndex: 10 }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.transform = 'scale(0.9)'; }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+            <div className="card-title" style={{ paddingRight: '24px' }}>{d.name}</div>
             <div className="muted" style={{ fontSize: "14px", marginBottom: "16px", flex: 1 }}>{d.description || "No description provided."}</div>
             <div className="chip-group" style={{ marginTop: "auto", marginBottom: "16px" }}>
               {(d.data_types || []).map((t) => (
@@ -108,6 +141,58 @@ export default function DashboardPage() {
           </a>
         ))}
       </section>
+
+      {deleteTarget && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: 20
+        }}>
+          <div className="card" style={{ maxWidth: 400, width: "100%", margin: 0, position: "relative" }}>
+            <button
+              onClick={() => setDeleteTarget(null)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1.2rem",
+                color: "var(--muted)",
+                lineHeight: 1
+              }}
+            >
+              ✕
+            </button>
+            <h3 style={{ marginTop: 0 }}>Delete Dataset</h3>
+            <p className="muted">
+              Are you sure you want to permanently delete "{deleteTarget.name}"? This action cannot be undone.
+            </p>
+            <div className="inline-actions" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button
+                className="btn secondary"
+                onClick={(e) => { e.preventDefault(); setDeleteTarget(null); }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                style={{ background: "var(--warn, #ef4444)", border: "none", color: "white" }}
+                onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
