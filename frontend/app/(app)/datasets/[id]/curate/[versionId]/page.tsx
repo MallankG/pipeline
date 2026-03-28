@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiGet } from "@/components/api";
 import { useSessionUser } from "@/components/session";
+import { useJobWebSocket } from "@/components/useJobWebSocket";
 
 type Dataset = {
   id: string;
@@ -23,6 +24,11 @@ type Source = {
   source_type: string;
   source_uri: string;
   created_at: string;
+};
+
+type Job = {
+  id: string;
+  status: string;
 };
 
 const CURATION_STAGES = [
@@ -48,7 +54,11 @@ export default function CuratePage() {
   const [version, setVersion] = useState<Version | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+
+  // Connect to WebSocket for real-time updates
+  const { isConnected, progress } = useJobWebSocket(activeJobId);
 
   useEffect(() => {
     async function load() {
@@ -60,6 +70,13 @@ export default function CuratePage() {
       const sourcesResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/sources`);
       const versions = await apiGet(`/datasets/${datasetId}/versions`);
       const currentV = versions?.find((v: Version) => v.id === versionId);
+      const jobsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/jobs`);
+
+      // Find active running job
+      const activeJob = jobsResult?.find((j: Job) => j.status === "running");
+      if (activeJob) {
+        setActiveJobId(activeJob.id);
+      }
 
       setDataset(ds);
       setVersion(currentV);
@@ -69,6 +86,7 @@ export default function CuratePage() {
     load();
   }, [datasetId, versionId, user]);
 
+  // Polling as fallback when WebSocket is not connected
   useEffect(() => {
     if (!user || !datasetId || !versionId) return;
     setPolling(true);
@@ -82,12 +100,23 @@ export default function CuratePage() {
       if (currentV?.status === "processed" || currentV?.status === "failed") {
         setPolling(false);
         clearInterval(timer);
+        setActiveJobId(null);
       }
     }, 4000);
     return () => clearInterval(timer);
-  }, [datasetId, versionId, user]);
+  }, [datasetId, versionId, user, activeJobId]);
 
+  // Merge WebSocket progress with version status
   const stageIndex = useMemo(() => {
+    // Use WebSocket stage if available
+    const wsStage = progress?.currentStage;
+    if (wsStage === "ingesting") return 0;
+    if (wsStage === "processing") return 1;
+    if (wsStage === "eda_generating") return 3;
+    if (wsStage === "exporting") return 4;
+    if (wsStage === "completed") return 5;
+
+    // Fall back to version status
     const s = version?.status || "draft";
     if (s === "ingesting") return 0;
     if (s === "processing") return 1;
@@ -95,7 +124,7 @@ export default function CuratePage() {
     if (s === "exporting") return 4;
     if (s === "processed") return 5;
     return -1;
-  }, [version]);
+  }, [version, progress]);
 
   if (!loading && !user) {
     return (
@@ -120,9 +149,98 @@ export default function CuratePage() {
           </div>
         </div>
         <div style={{ marginTop: 16 }} className={`alert ${version?.status === "failed" ? "warn" : "info"}`}>
-          {polling ? "Pipeline is active. We are tracking progress through the ingest and processing stages." : version?.status === "processed" ? "Curation complete." : version?.status === "failed" ? "Curation failed. Check job logs." : "Curation paused."}
+          {isConnected && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#22c55e",
+                animation: "pulse 2s infinite"
+              }} />
+              <span>Live updates connected</span>
+            </div>
+          )}
+          {progress.error ? (
+            <div className="warn">Error: {progress.error}</div>
+          ) : progress.assetProgress.total > 0 ? (
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                Processing: {progress.assetProgress.current} / {progress.assetProgress.total} assets
+                ({Math.round((progress.assetProgress.current / progress.assetProgress.total) * 100)}%)
+              </div>
+              <div style={{
+                height: 4,
+                background: "#e5e7eb",
+                borderRadius: 2,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  height: "100%",
+                  width: `${(progress.assetProgress.current / progress.assetProgress.total) * 100}%`,
+                  background: "#8b5cf6",
+                  transition: "width 0.3s ease"
+                }} />
+              </div>
+              {progress.assetProgress.currentAssetId && (
+                <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+                  Current: {progress.assetProgress.currentAssetId} ({progress.assetProgress.currentAssetStatus})
+                </div>
+              )}
+            </div>
+          ) : (
+            polling ? "Pipeline is active. We are tracking progress through the ingest and processing stages." : version?.status === "processed" ? "Curation complete." : version?.status === "failed" ? "Curation failed. Check job logs." : "Curation paused."
+          )}
         </div>
       </section>
+
+      {/* Live Processing Logs */}
+      {progress.logs.length > 0 && (
+        <section className="card">
+          <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Live Processing Logs</span>
+            {isConnected && <span className="badge" style={{ background: "#22c55e", color: "white" }}>Live</span>}
+          </div>
+          <div style={{
+            background: "#1f2937",
+            color: "#e5e7eb",
+            padding: 12,
+            borderRadius: 6,
+            fontFamily: "monospace",
+            fontSize: 12,
+            maxHeight: 300,
+            overflow: "auto"
+          }}>
+            {progress.logs.map((log, idx) => (
+              <div key={idx} style={{ marginBottom: 4 }}>
+                {log}
+              </div>
+            ))}
+          </div>
+          {progress.stats && (
+            <div style={{ marginTop: 12 }} className="grid">
+              {progress.stats.total !== undefined && (
+                <div className="stat">
+                  <strong>{progress.stats.total}</strong>
+                  <div className="muted">Total Assets</div>
+                </div>
+              )}
+              {progress.stats.processed !== undefined && (
+                <div className="stat">
+                  <strong style={{ color: "#22c55e" }}>{progress.stats.processed}</strong>
+                  <div className="muted">Processed</div>
+                </div>
+              )}
+              {progress.stats.failed !== undefined && progress.stats.failed > 0 && (
+                <div className="stat">
+                  <strong style={{ color: "#ef4444" }}>{progress.stats.failed}</strong>
+                  <div className="muted">Failed</div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <div className="section-title">Curation stages</div>

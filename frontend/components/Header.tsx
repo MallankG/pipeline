@@ -16,6 +16,9 @@ export default function Header() {
         <a href="/dashboard">Dashboard</a>
         <a href="/datasets/new">New Dataset</a>
         <a href="/connectors">Connectors</a>
+        <a href="/query" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span>🔍</span> Query
+        </a>
       </nav>
     </header>
   );

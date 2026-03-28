@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 from routes.datasets import router as datasets_router
 from routes.jobs import router as jobs_router
+from routes.chat import router as chat_router
+from websocket import websocket_endpoint
 
 load_dotenv()
 
@@ -34,3 +36,6 @@ def health():
 
 app.include_router(datasets_router)
 app.include_router(jobs_router)
+app.include_router(chat_router)
+app.add_api_websocket_route("/ws/jobs/{job_id}", websocket_endpoint)
+
