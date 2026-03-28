@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "./api";
 import { getAccessToken } from "./session";
 
@@ -21,6 +22,7 @@ type Dataset = {
 };
 
 export default function VersionActions({ datasetId, versionId }: { datasetId: string; versionId: string }) {
+  const router = useRouter();
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [sourceType, setSourceType] = useState("Local Upload");
   const [sourceUri, setSourceUri] = useState("");
@@ -119,15 +121,21 @@ export default function VersionActions({ datasetId, versionId }: { datasetId: st
         options: {},
       });
     }
-    setStatus("Data added. Curation will pick up new assets.");
-    window.location.reload();
+    setStatus("✓ Data added successfully.");
+    // Refresh asset count by triggering parent re-fetch via URL navigation
+    router.refresh();
   }
 
   async function runPipeline() {
-    const job = await apiPost(`/datasets/${datasetId}/versions/${versionId}/jobs`, { type: "PIPELINE_RUN" });
-    await apiPost(`/jobs/${job.id}/run`, {});
-    setStatus("Pipeline running");
-    window.location.reload();
+    setStatus("Starting pipeline…");
+    try {
+      const job = await apiPost(`/datasets/${datasetId}/versions/${versionId}/jobs`, { type: "PIPELINE_RUN" });
+      await apiPost(`/jobs/${job.id}/run`, {});
+      // Navigate to curate page which has live WebSocket + polling
+      router.push(`/datasets/${datasetId}/curate/${versionId}`);
+    } catch (err: unknown) {
+      setStatus(err instanceof Error ? err.message : "Failed to start pipeline");
+    }
   }
 
   return (

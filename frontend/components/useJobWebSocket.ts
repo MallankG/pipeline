@@ -98,7 +98,7 @@ export function useJobWebSocket(jobId: string | null) {
         isComplete: true,
         logs: dbLogs.length > 0 ? dbLogs : prev.logs,
       }));
-      return; // already done — skip WS connection
+      return; // already done — skip WS
     }
 
     if (job.status === "failed") {
@@ -113,14 +113,16 @@ export function useJobWebSocket(jobId: string | null) {
       return;
     }
 
-    // Job is still running — update stage from DB then try WS
-    if (job.status === "running") {
+    // Job is queued or running — set stage from DB and open WS
+    if (job.status === "queued" || job.status === "running") {
       setProgress((prev) => ({
         ...prev,
-        currentStage: job.status,
+        currentStage: job.status, // "queued" or "running"
       }));
+      // WS will connect in the caller; just return here
     }
   }, [jobId]);
+
 
   const connect = useCallback(() => {
     if (!jobId) return;

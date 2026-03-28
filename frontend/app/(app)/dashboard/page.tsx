@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "@/components/api";
 import { useSessionUser } from "@/components/session";
+import PageLoader from "@/components/PageLoader";
 
 type Dataset = {
   id: string;
@@ -13,28 +14,23 @@ type Dataset = {
 };
 
 export default function DashboardPage() {
-  const { user, loading } = useSessionUser();
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const { user, loading: authLoading } = useSessionUser();
+  const [datasets, setDatasets] = useState<Dataset[] | null>(null); // null = not yet loaded
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    async function load() {
-      if (!user) {
-        setDatasets([]);
-        return;
-      }
-      try {
-        const result = await apiGet("/datasets");
-        setDatasets(result || []);
-      } catch (err: unknown) {
+    if (!user) return;
+    apiGet("/datasets")
+      .then((r) => setDatasets(r || []))
+      .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Failed to load datasets");
-      }
-    }
-    load();
+        setDatasets([]);
+      });
   }, [user]);
 
   const filtered = useMemo(() => {
+    if (!datasets) return [];
     if (!query.trim()) return datasets;
     const q = query.toLowerCase();
     return datasets.filter((d) =>
@@ -43,17 +39,22 @@ export default function DashboardPage() {
     );
   }, [datasets, query]);
 
-  if (!loading && !user) {
+  // Auth loading
+  if (authLoading) return <PageLoader lines={2} />;
+
+  // Not signed in
+  if (!user) {
     return (
-      <main className="card fade-up">
-        <div style={{ textAlign: "center", padding: "40px" }}>
-          <h2>Authentication Required</h2>
-          <p className="muted" style={{ marginBottom: "24px" }}>Please sign in to access your dashboard.</p>
-          <a href="/auth" className="btn">Sign In</a>
-        </div>
+      <main className="card fade-up" style={{ textAlign: "center", padding: "40px" }}>
+        <h2>Authentication Required</h2>
+        <p className="muted" style={{ marginBottom: "24px" }}>Please sign in to access your dashboard.</p>
+        <a href="/auth" className="btn">Sign In</a>
       </main>
     );
   }
+
+  // Data loading
+  if (datasets === null) return <PageLoader lines={2} />;
 
   return (
     <main className="grid fade-up" style={{ gap: 32 }}>
@@ -96,15 +97,13 @@ export default function DashboardPage() {
           <a key={d.id} className="card" href={`/datasets/${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
             <div className="card-title">{d.name}</div>
             <div className="muted" style={{ fontSize: "14px", marginBottom: "16px", flex: 1 }}>{d.description || "No description provided."}</div>
-
             <div className="chip-group" style={{ marginTop: "auto", marginBottom: "16px" }}>
               {(d.data_types || []).map((t) => (
                 <span key={t} className="chip">{t}</span>
               ))}
             </div>
-
             <div style={{ fontSize: 13, color: "var(--muted)", paddingTop: "16px", borderTop: "1px solid var(--border)" }}>
-              Created {new Date(d.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              Created {new Date(d.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
             </div>
           </a>
         ))}

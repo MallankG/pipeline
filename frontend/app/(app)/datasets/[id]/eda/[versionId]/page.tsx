@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiGet } from "@/components/api";
 import { useSessionUser } from "@/components/session";
-
-type Dataset = {
-  id: string;
-  name: string;
-};
+import PageLoader from "@/components/PageLoader";
 
 type Asset = {
   id: string;
@@ -16,34 +12,44 @@ type Asset = {
   status: string;
 };
 
+type Dataset = { id: string; name: string };
+
 export default function EdaPage() {
   const params = useParams<{ id: string; versionId: string }>();
   const datasetId = params?.id;
   const versionId = params?.versionId;
-  const { user, loading } = useSessionUser();
+  const { user, loading: authLoading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<Asset[] | null>(null); // null = loading
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      if (!user || !datasetId || !versionId) {
-        return;
-      }
-      const ds = await apiGet(`/datasets/${datasetId}`);
-      const assetsResult = await apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`);
-      setDataset(ds);
-      setAssets(assetsResult || []);
-    }
-    load();
+    if (!user || !datasetId || !versionId) return;
+    Promise.all([
+      apiGet(`/datasets/${datasetId}`),
+      apiGet(`/datasets/${datasetId}/versions/${versionId}/assets`),
+    ])
+      .then(([ds, assetsResult]) => {
+        setDataset(ds);
+        setAssets(assetsResult || []);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load EDA data");
+        setAssets([]);
+      });
   }, [datasetId, versionId, user]);
 
-  if (!loading && !user) {
+  if (authLoading) return <PageLoader />;
+
+  if (!user) {
     return (
       <main className="card">
         <div>Please <a href="/auth">sign in</a> to access EDA.</div>
       </main>
     );
   }
+
+  if (!dataset || assets === null) return <PageLoader />;
 
   const total = assets.length;
   const byType = assets.reduce<Record<string, number>>((acc, a) => {
@@ -53,9 +59,11 @@ export default function EdaPage() {
   }, {});
 
   return (
-    <main className="grid" style={{ gap: 24 }}>
+    <main className="grid fade-up" style={{ gap: 24 }}>
+      {error && <div className="alert warn">{error}</div>}
+
       <section className="card">
-        <div className="page-title">EDA: {dataset?.name || "Dataset"}</div>
+        <h1 className="page-title">EDA: {dataset.name}</h1>
         <div className="muted">Version {versionId}</div>
       </section>
 
@@ -95,9 +103,14 @@ export default function EdaPage() {
                   </td>
                 </tr>
               ))}
+              {total === 0 && (
+                <tr>
+                  <td colSpan={3} className="muted">No assets found for this version.</td>
+                </tr>
+              )}
             </tbody>
           </table>
-          {assets.length > 10 && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Showing first 10 assets.</div>}
+          {total > 10 && <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Showing first 10 assets.</div>}
         </div>
       </section>
 
@@ -106,6 +119,7 @@ export default function EdaPage() {
         <div className="inline-actions">
           <a className="btn secondary" href={`/datasets/${datasetId}/curate/${versionId}`}>Back to Curation</a>
           <a className="btn" href={`/datasets/${datasetId}/final/${versionId}`}>Go to Final Dataset</a>
+          <a className="btn ghost" href={`/datasets/${datasetId}/query`}>Query this Dataset</a>
         </div>
       </section>
     </main>

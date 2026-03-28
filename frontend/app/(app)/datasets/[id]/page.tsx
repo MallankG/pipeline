@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { apiGet } from "@/components/api";
 import { useSessionUser } from "@/components/session";
 import CreateVersion from "@/components/CreateVersion";
+import PageLoader from "@/components/PageLoader";
 
 type Dataset = {
   id: string;
@@ -31,34 +32,47 @@ type Source = {
 export default function DatasetPage() {
   const params = useParams<{ id: string }>();
   const datasetId = params?.id;
-  const { user, loading } = useSessionUser();
+  const { user, loading: authLoading } = useSessionUser();
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [versions, setVersions] = useState<Version[]>([]);
+  const [versions, setVersions] = useState<Version[] | null>(null); // null = loading
   const [sourcesByVersion, setSourcesByVersion] = useState<Record<string, Source[]>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user || !datasetId) return;
     async function load() {
-      if (!user || !datasetId) {
-        return;
-      }
-      const ds = await apiGet(`/datasets/${datasetId}`);
-      const vs = await apiGet(`/datasets/${datasetId}/versions`);
-      setDataset(ds);
-      setVersions(vs || []);
+      try {
+        const [ds, vs] = await Promise.all([
+          apiGet(`/datasets/${datasetId}`),
+          apiGet(`/datasets/${datasetId}/versions`),
+        ]);
+        setDataset(ds);
+        setVersions(vs || []);
 
-      const sourcesMap: Record<string, Source[]> = {};
-      for (const version of vs || []) {
-        const src = await apiGet(`/datasets/${datasetId}/versions/${version.id}/sources`);
-        sourcesMap[version.id] = src || [];
+        // Parallel fetch of sources per version
+        const entries = await Promise.all(
+          (vs || []).map(async (v: Version) => {
+            const src = await apiGet(`/datasets/${datasetId}/versions/${v.id}/sources`);
+            return [v.id, src || []] as [string, Source[]];
+          })
+        );
+        setSourcesByVersion(Object.fromEntries(entries));
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load dataset");
+        setVersions([]);
       }
-      setSourcesByVersion(sourcesMap);
     }
     load();
   }, [datasetId, user]);
 
-  const latestVersion = useMemo(() => versions.slice().sort((a, b) => b.version - a.version)[0], [versions]);
+  const latestVersion = useMemo(
+    () => (versions ?? []).slice().sort((a, b) => b.version - a.version)[0],
+    [versions]
+  );
 
-  if (!loading && !user) {
+  if (authLoading) return <PageLoader />;
+
+  if (!user) {
     return (
       <main className="card">
         <div>Please <a href="/auth">sign in</a> to access this dataset.</div>
@@ -66,36 +80,40 @@ export default function DatasetPage() {
     );
   }
 
+  // Full-page loader until both dataset + versions are ready
+  if (!dataset || versions === null) return <PageLoader />;
+
   return (
     <main className="grid fade-up" style={{ gap: 32 }}>
+      {error && <div className="alert warn">{error}</div>}
+
       <section className="card">
         <div className="toolbar">
           <div>
-            <h1 className="page-title" style={{ margin: "0 0 8px 0" }}>{dataset?.name || "Dataset"}</h1>
-            <div className="muted">{dataset?.description || "No description yet."}</div>
+            <h1 className="page-title" style={{ margin: "0 0 8px 0" }}>{dataset.name}</h1>
+            <div className="muted">{dataset.description || "No description yet."}</div>
           </div>
           <div className="inline-actions">
             {latestVersion && (
               <a className="btn" href={`/datasets/${datasetId}/curate/${latestVersion.id}`}>Resume Curation</a>
             )}
             <a className="btn secondary" href="/connectors">Add Source</a>
+            <a className="btn ghost" href={`/datasets/${datasetId}/query`}>Query Data</a>
           </div>
         </div>
         <div className="chip-group" style={{ marginTop: 12 }}>
-          {(dataset?.data_types || []).map((t) => (
+          {(dataset.data_types || []).map((t) => (
             <span key={t} className="chip">{t}</span>
           ))}
         </div>
       </section>
 
-      {datasetId && (
-        <CreateVersion datasetId={datasetId} />
-      )}
+      {datasetId && <CreateVersion datasetId={datasetId} />}
 
       <section className="card">
         <div className="section-title">Versions</div>
         {versions.length === 0 && <div className="muted">No versions yet. Create one to begin curation.</div>}
-        <div className="card-grid">
+        <div className="card-grid" style={{ marginTop: 16 }}>
           {versions.map((v) => (
             <div key={v.id} className="card">
               <div className="card-title">Version v{v.version}</div>

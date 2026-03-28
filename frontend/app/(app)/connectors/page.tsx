@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/components/api";
 import { useSessionUser } from "@/components/session";
+import PageLoader from "@/components/PageLoader";
 
 const CONNECTORS = [
   { id: "S3", label: "S3 / GCS / Azure Blob", hint: "s3://bucket/path or gs://bucket/path" },
@@ -25,8 +26,8 @@ type Version = {
 };
 
 export default function ConnectorsPage() {
-  const { user, loading } = useSessionUser();
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const { user, loading: authLoading } = useSessionUser();
+  const [datasets, setDatasets] = useState<Dataset[] | null>(null); // null = loading
   const [versions, setVersions] = useState<Version[]>([]);
   const [datasetId, setDatasetId] = useState("");
   const [versionId, setVersionId] = useState("");
@@ -35,16 +36,13 @@ export default function ConnectorsPage() {
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      if (!user) return;
-      try {
-        const ds = await apiGet("/datasets");
-        setDatasets(ds || []);
-      } catch (err: unknown) {
+    if (!user) return;
+    apiGet("/datasets")
+      .then((ds) => setDatasets(ds || []))
+      .catch((err: unknown) => {
         setStatus(err instanceof Error ? err.message : "Failed to load datasets");
-      }
-    }
-    load();
+        setDatasets([]);
+      });
   }, [user]);
 
   useEffect(() => {
@@ -83,13 +81,17 @@ export default function ConnectorsPage() {
     }
   }
 
-  if (!loading && !user) {
+  if (authLoading) return <PageLoader lines={2} />;
+
+  if (!user) {
     return (
       <main className="card">
         <div>Please <a href="/auth">sign in</a> to manage connectors.</div>
       </main>
     );
   }
+
+  if (datasets === null) return <PageLoader lines={2} />;
 
   const selected = CONNECTORS.find((c) => c.id === sourceType);
 
@@ -107,7 +109,7 @@ export default function ConnectorsPage() {
             <label>Dataset</label>
             <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)}>
               <option value="">Select dataset</option>
-              {datasets.map((d) => (
+              {(datasets ?? []).map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
