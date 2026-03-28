@@ -1,0 +1,20 @@
+2026-03-28 23:35:13,498 - tasks - INFO - [7371228a-2dc0-455a-9a27-2d505f06e70a] Started run_pipeline_async for dataset d338c2b1-9282-419e-9f1f-a23a7f1ea87e, version bb27fbaa-9fd2-4779-a058-70e99618516d
+2026-03-28 23:35:13,498 - tasks - INFO - [7371228a-2dc0-455a-9a27-2d505f06e70a] Stage: Ingesting sources...
+2026-03-28 23:35:13,795 - tasks - INFO - [7371228a-2dc0-455a-9a27-2d505f06e70a] Stage: Processing 0 assets...
+2026-03-28 23:35:13,857 - tasks - INFO - [7371228a-2dc0-455a-9a27-2d505f06e70a] Stage: Generating EDA...
+2026-03-28 23:35:13,972 - tasks - INFO - [7371228a-2dc0-455a-9a27-2d505f06e70a] Stage: Exporting manifest...
+2026-03-28 23:35:14,070 - tasks - ERROR - Pipeline failed critically: expected str, bytes or os.PathLike object, not BytesIO
+Traceback (most recent call last):
+  File "/Users/mallank/Developer/ETL/backend/api/tasks.py", line 232, in run_pipeline_async
+    manifest_path = _export_manifest(dataset_id, version_id)
+  File "/Users/mallank/Developer/ETL/backend/api/tasks.py", line 337, in _export_manifest
+    supabase.storage.from_(PROCESSED_BUCKET).upload(path, io.BytesIO(body), {"content-type": "application/json", "upsert": True})
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mallank/Developer/ETL/backend/api/.venv/lib/python3.13/site-packages/storage3/_sync/file_api.py", line 592, in upload
+    return self._upload_or_update("POST", path_parts, file, file_options)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mallank/Developer/ETL/backend/api/.venv/lib/python3.13/site-packages/storage3/_sync/file_api.py", line 559, in _upload_or_update
+    open(file, "rb"),
+    ~~~~^^^^^^^^^^^^
+TypeError: expected str, bytes or os.PathLike object, not BytesIO
+

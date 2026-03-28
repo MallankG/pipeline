@@ -25,10 +25,56 @@ def _update_asset(asset_id: str, fields: Dict[str, Any]) -> None:
     if not supabase: return
     supabase.table("assets").update(fields).eq("id", asset_id).execute()
 
+def _download_asset_to_temp_file(uri: str) -> str:
+    if uri.startswith("file://"):
+        return uri.replace("file://", "")
+    
+    import urllib.parse
+    import tempfile
+    
+    parsed = urllib.parse.urlparse(uri)
+    path_parts = parsed.path.split("/")
+    
+    if "object" in path_parts and supabase:
+        try:
+            idx = path_parts.index("object")
+            bucket = path_parts[idx + 2]
+            # Handle URL encoded spaces in the path
+            object_path = urllib.parse.unquote("/".join(path_parts[idx + 3:]))
+            
+            data = supabase.storage.from_(bucket).download(object_path)
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(data)
+                return tmp_file.name
+        except Exception as e:
+            print(f"Native download failed, trying fallback: {e}")
+            
+    # Fallback to urllib
+    import urllib.request
+    import urllib.error
+    
+    req = urllib.request.Request(uri)
+    if SUPABASE_SERVICE_ROLE_KEY:
+        req.add_header("Authorization", f"Bearer {SUPABASE_SERVICE_ROLE_KEY}")
+        req.add_header("apikey", SUPABASE_SERVICE_ROLE_KEY)
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(response.read())
+                return tmp_file.name
+    except urllib.error.URLError as e:
+        raise Exception(f"Failed to download asset {uri}: {e}")
+
 def _read_local_text(uri: str) -> str:
-    path = uri.replace("file://", "")
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+    path = _download_asset_to_temp_file(uri)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    finally:
+        if path != uri.replace("file://", ""):
+            import os
+            os.remove(path)
 
 def _process_text(asset: Dict[str, Any]) -> Dict[str, Any]:
     text_inline = asset.get("metadata", {}).get("text_inline")
@@ -45,9 +91,14 @@ def _process_image(asset: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:
         return {"warning": "Pillow not installed"}
 
-    path = asset["uri"].replace("file://", "")
-    with Image.open(path) as img:
-        return {"width": img.width, "height": img.height, "mode": img.mode, "format": img.format}
+    path = _download_asset_to_temp_file(asset["uri"])
+    try:
+        with Image.open(path) as img:
+            return {"width": img.width, "height": img.height, "mode": img.mode, "format": img.format}
+    finally:
+        if path != asset["uri"].replace("file://", ""):
+            import os
+            os.remove(path)
 
 def _process_numerical(asset: Dict[str, Any]) -> Dict[str, Any]:
     try:
@@ -55,10 +106,17 @@ def _process_numerical(asset: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:
         return {"warning": "pandas not installed"}
 
-    path = asset["uri"].replace("file://", "")
-    df = pd.read_csv(path)
-    summary = df.describe(include="all").fillna("").to_dict()
-    return {"rows": len(df), "cols": len(df.columns), "summary": summary}
+    path = _download_asset_to_temp_file(asset["uri"])
+    print(f"[_process_numerical] Fetching numerical data from: {path}")
+    try:
+        df = pd.read_csv(path)
+        print(f"[_process_numerical] Loaded dataframe, shape: {df.shape}")
+        summary = df.describe(include="all").fillna("").to_dict()
+        return {"rows": len(df), "cols": len(df.columns), "summary": summary}
+    finally:
+        if path != asset["uri"].replace("file://", ""):
+            import os
+            os.remove(path)
 
 def _ingest_sources(dataset_id: str, version_id: str) -> None:
     if not supabase: return
@@ -111,8 +169,11 @@ async def run_pipeline_async(job_id: str) -> None:
 
     async def log_and_update(message: str):
         """Log message and send via WebSocket."""
+        print(f"[PIPELINE LOG] {message}")
         logs.append(message)
         await send_progress_update(job_id, "running", message, {"total_logs": len(logs)})
+
+    print(f"[PIPELINE START] Job {job_id} for dataset {dataset_id} version {version_id}")
 
     try:
         # Stage 1: Ingest
@@ -142,6 +203,7 @@ async def run_pipeline_async(job_id: str) -> None:
         failed_count = 0
 
         for idx, asset in enumerate(assets):
+            print(f"[ASSET START] Processing asset {idx+1}/{total_assets}: {asset['id']}")
             try:
                 media_type = asset["media_type"]
                 _update_asset(asset["id"], {"status": "processing"})
@@ -154,11 +216,16 @@ async def run_pipeline_async(job_id: str) -> None:
                 })
 
                 if media_type.startswith("image/"):
+                    print(f"  -> Processing as image")
                     meta = _process_image(asset)
                 elif media_type.startswith("text/"):
+                    print(f"  -> Processing as text")
                     meta = _process_text(asset)
                 else:
+                    print(f"  -> Processing as numerical (pandas)")
                     meta = _process_numerical(asset)
+                
+                print(f"  -> Processed metadata: {meta}")
 
                 new_meta = dict(asset.get("metadata") or {})
                 new_meta.update(meta)
@@ -239,7 +306,12 @@ async def run_pipeline_async(job_id: str) -> None:
             "failed": failed_count
         })
 
+        print(f"[PIPELINE COMPLETE] Job {job_id}")
+
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[PIPELINE FATAL ERROR] {error_trace}")
         error_msg = f"Pipeline failed: {e}"
         await send_error(job_id, error_msg)
         _update_version_status(version_id, "failed")
@@ -319,4 +391,14 @@ def _export_manifest(dataset_id: str, version_id: str) -> None:
 
     body = "\n".join(lines).encode("utf-8")
     path = f"datasets/{dataset_id}/versions/{version_id}/manifest.jsonl"
-    supabase.storage.from_(PROCESSED_BUCKET).upload(path, io.BytesIO(body), {"content-type": "application/json", "upsert": True})
+    
+    import tempfile
+    import os
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(body)
+        tmp_path = tmp.name
+        
+    try:
+        supabase.storage.from_(PROCESSED_BUCKET).upload(path, tmp_path, {"content-type": "application/json", "upsert": "true"})
+    finally:
+        os.remove(tmp_path)
